@@ -13,17 +13,10 @@ import {
 } from './core/pdf';
 import { scanPage } from './core/scan';
 import type { DetailField, Details, Finding, ManualBox, PageText, Rect } from './core/types';
+import { initialLang, saveLang, STRINGS, type Lang } from './i18n';
 import { PageView } from './PageView';
 
-const FIELDS: { field: DetailField; label: string; hint: string }[] = [
-  { field: 'name', label: 'Names', hint: 'Dana Levi; דנה לוי' },
-  { field: 'id', label: 'ID numbers', hint: '123456782' },
-  { field: 'phone', label: 'Phone numbers', hint: '052-1234567' },
-  { field: 'account', label: 'Bank accounts', hint: '12-345-678901' },
-  { field: 'email', label: 'Emails', hint: 'dana@example.com' },
-  { field: 'address', label: 'Addresses', hint: '12 Herzl St, Tel Aviv' },
-  { field: 'other', label: 'Anything else', hint: 'employer, employee number…' },
-];
+const FIELDS: DetailField[] = ['name', 'id', 'phone', 'account', 'email', 'address', 'other'];
 
 const EMPTY: Record<DetailField, string> = {
   name: '',
@@ -57,7 +50,7 @@ interface Group {
   key: string;
   kind: string;
   text: string;
-  note?: string;
+  note?: Finding['note'];
   items: Finding[];
 }
 
@@ -87,6 +80,8 @@ function groupBy(findings: Finding[]): Group[] {
 }
 
 export function App() {
+  const [lang, setLang] = useState<Lang>(initialLang);
+  const t = STRINGS[lang];
   const [loaded, setLoaded] = useState<Loaded | null>(null);
   const [raw, setRaw] = useState(EMPTY);
   const [ignored, setIgnored] = useState<string[]>([]);
@@ -104,7 +99,7 @@ export function App() {
 
   const details = useMemo(() => {
     const d = {} as Details;
-    for (const { field } of FIELDS) d[field] = splitValues(raw[field]);
+    for (const field of FIELDS) d[field] = splitValues(raw[field]);
     return d;
   }, [raw]);
 
@@ -122,10 +117,10 @@ export function App() {
   ).length;
   const hiddenCount = findings.filter(isHidden).length + manual.length;
   const replacements = useMemo(
-    () => buildReplacements(findings.filter(isHidden), mode),
+    () => buildReplacements(findings.filter(isHidden), mode, (kind) => t.kinds[kind] ?? kind),
     // isHidden depends only on overrides.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [findings, overrides, mode],
+    [findings, overrides, mode, t],
   );
 
   // Any change makes a previously built file out of date.
@@ -134,11 +129,22 @@ export function App() {
       if (r?.ok) URL.revokeObjectURL(r.url);
       return null;
     });
-  }, [findings, overrides, manual, mode]);
+  }, [findings, overrides, manual, mode, lang]);
+
+  useEffect(() => {
+    document.documentElement.lang = lang;
+    document.documentElement.dir = t.dir;
+  }, [lang, t]);
+
+  const switchLang = () => {
+    const next = lang === 'en' ? 'he' : 'en';
+    saveLang(next);
+    setLang(next);
+  };
 
   async function load(bytes: Uint8Array, name: string) {
     setError('');
-    setBusy('Reading document…');
+    setBusy(t.readingDocument);
     try {
       const doc = await openPdf(bytes);
       const proxies: PDFPageProxy[] = [];
@@ -159,11 +165,7 @@ export function App() {
       void readScans(doc, proxies, scanned);
     } catch (e) {
       const isPassword = (e as Error)?.name === 'PasswordException';
-      setError(
-        isPassword
-          ? 'This PDF is password-protected. Remove the password and try again.'
-          : 'Could not read this file. Please choose a PDF or an image.',
-      );
+      setError(isPassword ? t.errPassword : t.errFile);
     } finally {
       setBusy('');
     }
@@ -206,13 +208,13 @@ export function App() {
     if (!file) return;
     if (file.type.startsWith('image/')) {
       setError('');
-      setBusy('Reading image…');
+      setBusy(t.readingImage);
       let bytes: Uint8Array;
       try {
         bytes = await imageToPdf(file);
       } catch {
         setBusy('');
-        setError('Could not read this image. Try a JPEG or PNG file.');
+        setError(t.errImage);
         return;
       }
       await load(bytes, file.name.replace(/\.[^.]+$/, '') + '.pdf');
@@ -251,9 +253,7 @@ export function App() {
     if (!loaded) return;
     if (
       undecided > 0 &&
-      !window.confirm(
-        `${undecided} item(s) are still undecided and will stay visible. Export anyway?`,
-      )
+      !window.confirm(t.confirmUndecided(undecided))
     )
       return;
 
@@ -271,13 +271,13 @@ export function App() {
       );
     }
     for (const m of manual)
-      boxes[m.page].push({ rect: m.rect, label: mode === 'template' ? '[REDACTED]' : '' });
+      boxes[m.page].push({ rect: m.rect, label: mode === 'template' ? `[${t.redacted}]` : '', rtl: lang === 'he' });
 
     try {
       const bytes = await exportPdf(loaded.doc, boxes, mode, (p, n) =>
-        setBusy(`Building page ${p} of ${n}…`),
+        setBusy(t.building(p, n)),
       );
-      setBusy('Checking the result…');
+      setBusy(t.checking);
       const check = await verifyPdf(bytes, findings.filter(isHidden).map((f) => f.text));
       if (!check.ok) {
         setResult({ ok: false, leaks: check.leaks });
@@ -287,7 +287,7 @@ export function App() {
       const name = loaded.name.replace(/\.pdf$/i, '') + '-clean.pdf';
       setResult({ ok: true, url, name, size: bytes.length });
     } catch {
-      setError('Something went wrong while building the file.');
+      setError(t.errBuild);
     } finally {
       setBusy('');
     }
@@ -303,10 +303,10 @@ export function App() {
     return (
       <main className="landing">
         <h1>cleanPDF</h1>
-        <p className="lead">
-          Hide your personal details in a document before you send it. The file is processed on
-          this device only and nothing is saved.
-        </p>
+        <button type="button" className="link lang" onClick={switchLang}>
+          {t.switchTo}
+        </button>
+        <p className="lead">{t.lead}</p>
         <label
           className={`drop ${dragging ? 'over' : ''}`}
           onDragOver={(e) => {
@@ -317,10 +317,10 @@ export function App() {
           onDrop={onDrop}
         >
           <input type="file" accept="application/pdf,image/*" onChange={(e) => loadFile(e.target.files?.[0])} />
-          <strong>{busy || 'Drop a PDF, scan or photo here, or click to choose'}</strong>
+          <strong>{busy || t.drop}</strong>
         </label>
         <button type="button" className="link" onClick={loadSample}>
-          Try it with a sample document
+          {t.trySample}
         </button>
         {error && <p className="error">{error}</p>}
       </main>
@@ -342,13 +342,13 @@ export function App() {
                 }}
                 onChange={() => toggleGroup(g)}
               />
-              <span className="kind">{g.kind}</span>
+              <span className="kind">{t.kinds[g.kind] ?? g.kind}</span>
             </label>
             <button
               type="button"
               className="value"
               dir="auto"
-              title="Show on page"
+              title={t.showOnPage}
               onClick={() =>
                 document.getElementById(`page-${g.items[0].page}`)?.scrollIntoView({ behavior: 'smooth' })
               }
@@ -356,14 +356,14 @@ export function App() {
               {g.text}
             </button>
             <span className="count">×{g.items.length}</span>
-            {g.note && <span className="note">{g.note}</span>}
+            {g.note && <span className="note">{t.notes[g.note]}</span>}
             {suggestion && (
               <span className="actions">
-                <button type="button" onClick={() => adopt(g)} title="Add to My details and hide every form of it">
-                  Hide everywhere
+                <button type="button" onClick={() => adopt(g)} title={t.hideEverywhereTitle}>
+                  {t.hideEverywhere}
                 </button>
                 <button type="button" onClick={() => setIgnored((i) => [...i, g.key])}>
-                  Ignore
+                  {t.ignore}
                 </button>
               </span>
             )}
@@ -378,83 +378,81 @@ export function App() {
       <aside>
         <header>
           <h1>cleanPDF</h1>
-          <button type="button" className="link" onClick={clearAll}>
-            Clear everything
-          </button>
+          <span className="header-links">
+            <button type="button" className="link" onClick={switchLang}>
+              {t.switchTo}
+            </button>
+            <button type="button" className="link" onClick={clearAll}>
+              {t.clear}
+            </button>
+          </span>
         </header>
         <p className="file" title={loaded.name}>
-          {loaded.name} · {loaded.pages.length} page(s)
+          <bdi>{loaded.name}</bdi> · {t.pages(loaded.pages.length)}
         </p>
 
-        <h2>1. My details</h2>
-        <p className="hint">One per line. Kept in memory only, gone when you close this tab.</p>
-        {FIELDS.map(({ field, label, hint }) => (
+        <h2>{t.step1}</h2>
+        <p className="hint">{t.step1Hint}</p>
+        {FIELDS.map((field) => (
           <label className="field" key={field}>
-            <span>{label}</span>
+            <span>{t.fields[field][0]}</span>
             <textarea
               rows={2}
               dir="auto"
-              placeholder={hint}
+              placeholder={t.fields[field][1]}
               value={raw[field]}
               onChange={(e) => setRaw((r) => ({ ...r, [field]: e.target.value }))}
             />
           </label>
         ))}
 
-        <h2>2. Review</h2>
-        <h3>Your details in this document</h3>
-        {mine.length ? groupList(mine, false) : <p className="hint">Nothing matched yet.</p>}
+        <h2>{t.step2}</h2>
+        <h3>{t.yours}</h3>
+        {mine.length ? groupList(mine, false) : <p className="hint">{t.noneYet}</p>}
         <h3>
-          Also found {undecided > 0 && <span className="badge">{undecided} undecided</span>}
+          {t.alsoFound} {undecided > 0 && <span className="badge">{t.undecided(undecided)}</span>}
         </h3>
         {others.length ? (
           groupList(others, true)
         ) : (
-          <p className="hint">No other sensitive values detected.</p>
+          <p className="hint">{t.noneFound}</p>
         )}
         <p className="hint">
-          Tick a row to hide it. Click a box on the page to switch it, or drag on the page to add
-          your own box (signatures, stamps, photos).
-          {manual.length > 0 && ` ${manual.length} manual box(es) added.`}
+          {t.reviewHint}
+          {manual.length > 0 && ` ${t.manualCount(manual.length)}`}
         </p>
 
-        <h2>3. Export</h2>
-        <p className="hint">How hidden values look in the new file:</p>
+        <h2>{t.step3}</h2>
+        <p className="hint">{t.exportHint}</p>
         <div className="modes">
           {MODES.map((m) => (
-            <label key={m.mode} className={mode === m.mode ? 'on' : ''} title={m.hint}>
-              <input type="radio" name="mode" checked={mode === m.mode} onChange={() => setMode(m.mode)} />
-              <span className={`swatch fill-${m.mode}`}>
-                {m.mode === 'template' ? '[NAME]' : m.mode === 'sample' ? 'John Doe' : ''}
+            <label key={m} className={mode === m ? 'on' : ''} title={t.modes[m][1]}>
+              <input type="radio" name="mode" checked={mode === m} onChange={() => setMode(m)} />
+              <span className={`swatch fill-${m}`}>
+                {m === 'template' ? t.swatchLabel : m === 'sample' ? t.swatchSample : ''}
               </span>
-              {m.label}
+              {t.modes[m][0]}
             </label>
           ))}
         </div>
         {mode === 'sample' && (
-          <p className="hint">
-            Sample data makes the file look like a real document about someone else. Tell the
-            person you send it to that the details are made up.
-          </p>
+          <p className="hint">{t.sampleWarning}</p>
         )}
         <button type="button" className="primary" disabled={!!busy || scanning > 0} onClick={runExport}>
-          {busy ||
-            (scanning > 0
-              ? `Reading ${scanning} scanned page(s)…`
-              : `Create clean PDF (${hiddenCount} hidden)`)}
+          {busy || (scanning > 0 ? t.readingScans(scanning) : t.create(hiddenCount))}
         </button>
         {error && <p className="error">{error}</p>}
         {result?.ok && (
           <div className="result ok">
-            <p>Checked: none of the hidden values can be read from the new file.</p>
+            <p>{t.checked}</p>
             <a className="primary" href={result.url} download={result.name}>
-              Download {result.name} ({Math.round(result.size / 1024)} KB)
+              {t.download(result.name, Math.round(result.size / 1024))}
             </a>
           </div>
         )}
         {result && !result.ok && (
           <div className="result bad">
-            <p>Export blocked. These values can still be read from the output:</p>
+            <p>{t.blocked}</p>
             <p dir="auto">{result.leaks.join(', ')}</p>
           </div>
         )}
@@ -475,6 +473,7 @@ export function App() {
             findings={findings.filter((f) => f.page === i)}
             isHidden={isHidden}
             mode={mode}
+            t={t}
             replacement={(f) => replacements.get(f.id) ?? ''}
             manual={manual.filter((m) => m.page === i)}
             onToggle={(f) => setOverrides((o) => ({ ...o, [f.id]: !isHidden(f) }))}

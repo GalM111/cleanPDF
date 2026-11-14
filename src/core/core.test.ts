@@ -208,7 +208,7 @@ describe('scanned pages', () => {
 
   it('accepts one misread character in longer values and marks it', () => {
     expect(fuzzy('Tenant: Dana Lcvi', { name: ['Dana Levi'] })).toEqual([
-      { text: 'dana lcvi', note: 'Close match in a scan, please check' },
+      { text: 'dana lcvi', note: 'fuzzy' },
     ]);
     expect(fuzzy('Dana Levi', { name: ['Dana Levi'] })).toEqual([{ text: 'dana levi', note: undefined }]);
     // Too short to match loosely: "Lena" is a different name, not a misread "Dana".

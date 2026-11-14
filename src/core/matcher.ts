@@ -1,6 +1,9 @@
 import { normValue } from './text';
 import { FIELD_KIND, type DetailField, type Details } from './types';
 
+/** Why a match should be looked at; the interface shows the wording. */
+export type Note = 'short' | 'fuzzy';
+
 /** A match in the normalised page text, before it is mapped to boxes. */
 export interface RawMatch {
   start: number;
@@ -8,7 +11,7 @@ export interface RawMatch {
   kind: string;
   key: string;
   source: 'details' | 'found';
-  note?: string;
+  note?: Note;
   /** Too uncertain to hide without asking: shown, and hidden only if the user says so. */
   review?: boolean;
 }
@@ -75,7 +78,6 @@ function numberRegex(field: DetailField, digits: string): RegExp {
 
 // Letters that a scan often shows in place of a digit (text is lower-cased).
 const LOOKALIKE: Record<string, string> = { 0: '[0oq]', 1: '[1li|!]', 2: '[2z]', 5: '[5s]', 8: '[8b]' };
-const FUZZY_NOTE = 'Close match in a scan, please check';
 // Shorter values are not matched loosely: one changed letter is another word.
 const FUZZY_MIN = 6;
 
@@ -127,7 +129,7 @@ export function detailMatches(text: string, details: Details, fuzzy = false): Ra
             kind,
             key,
             source: 'details',
-            note: review ? 'Short word, may be an ordinary word. Tick to hide' : undefined,
+            note: review ? 'short' : undefined,
             review: review || undefined,
           });
         }
@@ -141,7 +143,7 @@ export function detailMatches(text: string, details: Details, fuzzy = false): Ra
           const start = m.index;
           const end = m.index + m[0].length;
           if (matches.some((x) => x.start === start && x.end === end)) continue;
-          matches.push({ start, end, kind, key, source: 'details', note: FUZZY_NOTE });
+          matches.push({ start, end, kind, key, source: 'details', note: 'fuzzy' });
         }
       }
     }

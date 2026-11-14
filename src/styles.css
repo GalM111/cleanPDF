@@ -126,7 +126,7 @@ button {
 
 aside {
   background: var(--panel);
-  border-right: 1px solid var(--line);
+  border-inline-end: 1px solid var(--line);
   padding: 16px;
   overflow-y: auto;
 }
@@ -431,7 +431,7 @@ textarea {
   }
 
   aside {
-    border-right: 0;
+    border-inline-end: 0;
     border-bottom: 1px solid var(--line);
   }
 }
@@ -443,4 +443,15 @@ textarea {
 
 .reading {
   color: var(--accent);
+}
+
+.header-links {
+  display: flex;
+  gap: 12px;
+}
+
+.landing .lang {
+  position: absolute;
+  top: 16px;
+  inset-inline-end: 20px;
 }

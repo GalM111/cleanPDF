@@ -52,7 +52,7 @@ export interface Finding {
   /** Groups occurrences of the same value. */
   key: string;
   rects: Rect[];
-  note?: string;
+  note?: 'short' | 'fuzzy';
   /** Not hidden until the user decides (uncertain match). */
   review?: boolean;
 }

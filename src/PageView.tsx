@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type PointerEvent } from 'react';
 import { startRender, type PDFPageProxy } from './core/pdf';
 import { widestIndex, type OutputMode } from './core/replace';
 import type { ScanState } from './App';
+import type { Strings } from './i18n';
 import type { Finding, ManualBox, Rect } from './core/types';
 
 interface Props {
@@ -18,6 +19,7 @@ interface Props {
   findings: Finding[];
   isHidden: (f: Finding) => boolean;
   mode: OutputMode;
+  t: Strings;
   replacement: (f: Finding) => string;
   manual: ManualBox[];
   onToggle: (f: Finding) => void;
@@ -26,7 +28,7 @@ interface Props {
 }
 
 export function PageView(props: Props) {
-  const { page, index, width, height, findings, manual } = props;
+  const { page, index, width, height, findings, manual, t } = props;
   const holder = useRef<HTMLDivElement>(null);
   const [draft, setDraft] = useState<Rect | null>(null);
   const origin = useRef<{ x: number; y: number } | null>(null);
@@ -88,45 +90,41 @@ export function PageView(props: Props) {
   return (
     <section className="page" id={`page-${index}`}>
       <div className="page-title">
-        Page {index + 1}
+        {t.page(index + 1)}
         {props.scan === undefined ? (
           <>
             {props.ocr && (
               <span className="warn">
                 {' — '}
-                {props.hasText
-                  ? 'scanned page, read automatically. Check that every box is in place.'
-                  : 'no text could be read on this scan. Draw boxes by hand.'}
+                {props.hasText ? t.scanRead : t.scanEmpty}
               </span>
             )}
             {!props.ocr && (
               <button
                 type="button"
                 className="link reread"
-                title="Use this when details on the page are not found: the page is read from its picture instead"
+                title={t.rereadTitle}
                 onClick={props.onReadAsScan}
               >
-                Text not found? Read page as a scan
+                {t.reread}
               </button>
             )}
           </>
         ) : props.scan === 'failed' ? (
           <span className="warn">
-            {' — could not read this scan. Draw boxes by hand, or '}
+            {` — ${t.scanFailed} `}
             <button type="button" className="link" onClick={props.onReadAsScan}>
-              try again
+              {t.tryAgain}
             </button>
           </span>
         ) : (
           <span className="reading">
             {' — '}
-            {props.scan === 'wait'
-              ? 'scanned page, waiting to be read…'
-              : `reading scanned page… ${Math.round(props.scan * 100)}%`}
+            {props.scan === 'wait' ? t.scanWaiting : t.scanReading(Math.round(props.scan * 100))}
           </span>
         )}
       </div>
-      <div className="sheet" style={{ aspectRatio: `${width} / ${height}` }}>
+      <div className="sheet" dir="ltr" style={{ aspectRatio: `${width} / ${height}` }}>
         <div className="canvas-holder" ref={holder} />
         <div
           className="overlay"
@@ -145,7 +143,7 @@ export function PageView(props: Props) {
                 type="button"
                 className={`box ${f.source} ${hidden ? `hidden fill-${props.mode}` : 'kept'}`}
                 style={style(r)}
-                title={`${f.kind}: ${f.text} — click to ${hidden ? 'keep' : 'hide'}`}
+                title={t.boxTitle(t.kinds[f.kind] ?? f.kind, f.text, hidden)}
                 onClick={() => props.onToggle(f)}
               >
                 {text && (props.mode === 'template' || i === main) && <span dir="auto">{text}</span>}
@@ -158,10 +156,10 @@ export function PageView(props: Props) {
               type="button"
               className={`box manual hidden fill-${props.mode}`}
               style={style(m.rect)}
-              title="Manual box — click to remove"
+              title={t.manualTitle}
               onClick={() => props.onRemoveManual(m.id)}
             >
-              {props.mode === 'template' && <span>[REDACTED]</span>}
+              {props.mode === 'template' && <span>[{t.redacted}]</span>}
             </button>
           ))}
           {draft && <div className="box draft" style={style(draft)} />}
