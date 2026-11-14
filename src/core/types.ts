@@ -17,6 +17,8 @@ export interface TextItem {
   /** True when the base direction of the piece is right-to-left. */
   rtl: boolean;
   font: string;
+  /** A whole word read by OCR: always separated from its neighbours by a space. */
+  word?: boolean;
 }
 
 export interface PageText {

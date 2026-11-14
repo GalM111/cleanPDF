@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { isIban, isIsraeliId, isLuhn, patternMatches } from './detectors';
-import { charSpans } from './geometry';
+import { charSpans, mergeRects } from './geometry';
 import { detailMatches, numberVariants, resolveOverlaps } from './matcher';
 import { linesToItems } from './ocrItems';
 import { buildReplacements, sampleValue } from './replace';
@@ -200,10 +200,29 @@ describe('scanned pages', () => {
     );
     expect(items.map((i) => i.str)).toEqual(['Dana', 'לוי']);
     expect(items[0].y).toBe(items[1].y);
-    expect(items[0].x).toBe(10);
-    expect(items[0].w).toBe(30);
+    expect(items[0].x).toBeCloseTo(10);
+    expect(items[0].w).toBeCloseTo(30);
+    // The line box (60 to 90 px, plus a margin) is used, not the word's own.
+    expect(items[0].y).toBeCloseTo(19.5);
+    expect(items[0].h).toBeCloseTo(11);
     expect(items.map((i) => i.rtl)).toEqual([false, true]);
     expect(buildStream(items).text).toBe('Dana לוי');
+  });
+
+  it('puts boxes back on a page that was straightened before reading', () => {
+    const word = { text: 'Dana', confidence: 90, bbox: { x0: 900, y0: 480, x1: 1000, y1: 520 } };
+    const [it] = linesToItems([{ bbox: word.bbox, words: [word] }], 1, -Math.PI / 2, { width: 1000, height: 1000 });
+    // A quarter turn about the centre moves the middle of the right edge to the middle of the bottom edge.
+    expect(it.x + it.w / 2).toBeCloseTo(500);
+    expect(it.y + it.h / 2).toBeCloseTo(950);
+  });
+
+  it('joins word boxes on one line and keeps separate lines apart', () => {
+    const r = (x: number, y: number) => ({ x, y, w: 30, h: 12 });
+    expect(mergeRects([r(0, 0), r(34, 1), r(70, 2), r(0, 30)])).toEqual([
+      { x: 0, y: 0, w: 100, h: 14 },
+      { x: 0, y: 30, w: 30, h: 12 },
+    ]);
   });
 
   it('accepts one misread character in longer values and marks it', () => {

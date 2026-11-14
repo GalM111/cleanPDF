@@ -117,11 +117,20 @@ export function rangeRects(
  */
 export function mergeRects(rects: Rect[]): Rect[] {
   const out: Rect[] = [];
-  for (const r of [...rects].sort((a, b) => a.y - b.y || a.x - b.x)) {
-    const last = out[out.length - 1];
-    if (last && last.y === r.y && last.h === r.h && r.x - (last.x + last.w) < r.h) {
-      last.w = Math.max(last.x + last.w, r.x + r.w) - last.x;
-    } else out.push({ ...r });
+  for (const r of [...rects].sort((a, b) => a.x - b.x)) {
+    const near = out.find(
+      (o) =>
+        Math.abs(o.y + o.h / 2 - (r.y + r.h / 2)) < Math.min(o.h, r.h) * 0.5 &&
+        r.x - (o.x + o.w) < r.h,
+    );
+    if (!near) {
+      out.push({ ...r });
+      continue;
+    }
+    const bottom = Math.max(near.y + near.h, r.y + r.h);
+    near.w = Math.max(near.x + near.w, r.x + r.w) - near.x;
+    near.y = Math.min(near.y, r.y);
+    near.h = bottom - near.y;
   }
   return out;
 }

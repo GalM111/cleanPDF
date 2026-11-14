@@ -39,7 +39,7 @@ export function buildStream(items: TextItem[]): Stream {
         ref.push(null);
       } else {
         const gap = Math.max(it.x - (prev.x + prev.w), prev.x - (it.x + it.w));
-        if (gap > Math.min(prev.h, it.h) * 0.15) {
+        if (it.word || prev.word || gap > Math.min(prev.h, it.h) * 0.15) {
           text += ' ';
           ref.push(null);
         }
