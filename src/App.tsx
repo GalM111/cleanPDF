@@ -1,9 +1,12 @@
-import { useEffect, useMemo, useState, type DragEvent } from 'react';
+import { useEffect, useMemo, useRef, useState, type DragEvent } from 'react';
+import { ocrPage, stopOcr } from './core/ocr';
 import { exportPdf, verifyPdf, type DrawBox } from './core/export';
 import { buildReplacements, isHebrew, MODES, widestIndex, type OutputMode } from './core/replace';
 import {
   canvasMeasure,
   extractPage,
+  imageToPdf,
+  needsOcr,
   openPdf,
   type PDFDocumentProxy,
   type PDFPageProxy,
@@ -58,6 +61,9 @@ interface Group {
   items: Finding[];
 }
 
+/** Reading state of a scanned page: waiting, a 0 to 1 progress, or failed. */
+export type ScanState = 'wait' | 'failed' | number;
+
 type Result =
   | { ok: true; url: string; name: string; size: number }
   | { ok: false; leaks: string[] };
@@ -89,6 +95,10 @@ export function App() {
   const [error, setError] = useState('');
   const [result, setResult] = useState<Result | null>(null);
   const [dragging, setDragging] = useState(false);
+  const [scans, setScans] = useState<Record<number, ScanState>>({});
+  // Goes up when the document changes, so late OCR results are dropped.
+  const session = useRef(0);
+  const scanning = Object.values(scans).filter((s) => s !== 'failed').length;
 
   const details = useMemo(() => {
     const d = {} as Details;
@@ -135,24 +145,74 @@ export function App() {
         pages.push(await extractPage(page));
       }
       await loaded?.doc.destroy();
+      session.current++;
       setOverrides({});
       setManual([]);
       setIgnored([]);
+      setScans({});
       setLoaded({ doc, name, pages, proxies });
+      const scanned = pages.flatMap((p, i) => (needsOcr(p) ? [i] : []));
+      void readScans(doc, proxies, scanned);
     } catch (e) {
       const isPassword = (e as Error)?.name === 'PasswordException';
       setError(
         isPassword
           ? 'This PDF is password-protected. Remove the password and try again.'
-          : 'Could not read this file. Please choose a PDF.',
+          : 'Could not read this file. Please choose a PDF or an image.',
       );
     } finally {
       setBusy('');
     }
   }
 
+  /** Reads pages that are pictures, one after the other, and fills in their text. */
+  async function readScans(doc: PDFDocumentProxy, proxies: PDFPageProxy[], indexes: number[]) {
+    const mine = session.current;
+    const set = (i: number, state: ScanState | null) =>
+      setScans((s) => {
+        const next = { ...s };
+        if (state === null) delete next[i];
+        else next[i] = state;
+        return next;
+      });
+    for (const i of indexes) set(i, 'wait');
+    await Promise.all(
+      indexes.map(async (i) => {
+        try {
+          const page = await ocrPage(proxies[i], (p) => {
+            if (session.current === mine) set(i, p);
+          });
+          if (session.current !== mine) return;
+          // Earlier choices on this page pointed at text that has been replaced.
+          setOverrides((o) =>
+            Object.fromEntries(Object.entries(o).filter(([id]) => !id.startsWith(`${i}:`))),
+          );
+          setLoaded((l) =>
+            l && l.doc === doc ? { ...l, pages: l.pages.map((old, k) => (k === i ? page : old)) } : l,
+          );
+          set(i, null);
+        } catch {
+          if (session.current === mine) set(i, 'failed');
+        }
+      }),
+    );
+  }
+
   async function loadFile(file: File | undefined) {
-    if (file) await load(new Uint8Array(await file.arrayBuffer()), file.name);
+    if (!file) return;
+    if (file.type.startsWith('image/')) {
+      setError('');
+      setBusy('Reading image…');
+      let bytes: Uint8Array;
+      try {
+        bytes = await imageToPdf(file);
+      } catch {
+        setBusy('');
+        setError('Could not read this image. Try a JPEG or PNG file.');
+        return;
+      }
+      await load(bytes, file.name.replace(/\.[^.]+$/, '') + '.pdf');
+    } else await load(new Uint8Array(await file.arrayBuffer()), file.name);
   }
 
   async function loadSample() {
@@ -161,7 +221,10 @@ export function App() {
   }
 
   function clearAll() {
+    session.current++;
+    stopOcr();
     void loaded?.doc.destroy();
+    setScans({});
     setLoaded(null);
     setRaw(EMPTY);
     setIgnored([]);
@@ -249,8 +312,8 @@ export function App() {
           onDragLeave={() => setDragging(false)}
           onDrop={onDrop}
         >
-          <input type="file" accept="application/pdf" onChange={(e) => loadFile(e.target.files?.[0])} />
-          <strong>{busy || 'Drop a PDF here or click to choose'}</strong>
+          <input type="file" accept="application/pdf,image/*" onChange={(e) => loadFile(e.target.files?.[0])} />
+          <strong>{busy || 'Drop a PDF, scan or photo here, or click to choose'}</strong>
         </label>
         <button type="button" className="link" onClick={loadSample}>
           Try it with a sample document
@@ -370,8 +433,11 @@ export function App() {
             person you send it to that the details are made up.
           </p>
         )}
-        <button type="button" className="primary" disabled={!!busy} onClick={runExport}>
-          {busy || `Create clean PDF (${hiddenCount} hidden)`}
+        <button type="button" className="primary" disabled={!!busy || scanning > 0} onClick={runExport}>
+          {busy ||
+            (scanning > 0
+              ? `Reading ${scanning} scanned page(s)…`
+              : `Create clean PDF (${hiddenCount} hidden)`)}
         </button>
         {error && <p className="error">{error}</p>}
         {result?.ok && (
@@ -399,6 +465,9 @@ export function App() {
             width={loaded.pages[i].width}
             height={loaded.pages[i].height}
             hasText={loaded.pages[i].items.length > 0}
+            ocr={!!loaded.pages[i].ocr}
+            scan={scans[i]}
+            onReadAsScan={() => void readScans(loaded.doc, loaded.proxies, [i])}
             findings={findings.filter((f) => f.page === i)}
             isHidden={isHidden}
             mode={mode}

@@ -23,6 +23,8 @@ export interface PageText {
   items: TextItem[];
   width: number;
   height: number;
+  /** True when the text was read from the page picture (a scan or photo). */
+  ocr?: boolean;
 }
 
 export type DetailField = 'name' | 'id' | 'phone' | 'account' | 'email' | 'address' | 'other';

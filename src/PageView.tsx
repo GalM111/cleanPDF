@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type PointerEvent } from 'react';
 import { startRender, type PDFPageProxy } from './core/pdf';
 import { widestIndex, type OutputMode } from './core/replace';
+import type { ScanState } from './App';
 import type { Finding, ManualBox, Rect } from './core/types';
 
 interface Props {
@@ -9,6 +10,11 @@ interface Props {
   width: number;
   height: number;
   hasText: boolean;
+  /** The text of this page was read from its picture. */
+  ocr: boolean;
+  /** Set while the page is being read as a scan. */
+  scan: ScanState | undefined;
+  onReadAsScan: () => void;
   findings: Finding[];
   isHidden: (f: Finding) => boolean;
   mode: OutputMode;
@@ -83,8 +89,41 @@ export function PageView(props: Props) {
     <section className="page" id={`page-${index}`}>
       <div className="page-title">
         Page {index + 1}
-        {!props.hasText && (
-          <span className="warn"> — no readable text here (probably a scan). Draw boxes by hand.</span>
+        {props.scan === undefined ? (
+          <>
+            {props.ocr && (
+              <span className="warn">
+                {' — '}
+                {props.hasText
+                  ? 'scanned page, read automatically. Check that every box is in place.'
+                  : 'no text could be read on this scan. Draw boxes by hand.'}
+              </span>
+            )}
+            {!props.ocr && (
+              <button
+                type="button"
+                className="link reread"
+                title="Use this when details on the page are not found: the page is read from its picture instead"
+                onClick={props.onReadAsScan}
+              >
+                Text not found? Read page as a scan
+              </button>
+            )}
+          </>
+        ) : props.scan === 'failed' ? (
+          <span className="warn">
+            {' — could not read this scan. Draw boxes by hand, or '}
+            <button type="button" className="link" onClick={props.onReadAsScan}>
+              try again
+            </button>
+          </span>
+        ) : (
+          <span className="reading">
+            {' — '}
+            {props.scan === 'wait'
+              ? 'scanned page, waiting to be read…'
+              : `reading scanned page… ${Math.round(props.scan * 100)}%`}
+          </span>
         )}
       </div>
       <div className="sheet" style={{ aspectRatio: `${width} / ${height}` }}>

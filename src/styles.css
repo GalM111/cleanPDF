@@ -435,3 +435,12 @@ textarea {
     border-bottom: 1px solid var(--line);
   }
 }
+
+.page-title .reread {
+  float: inline-end;
+  font-size: 12px;
+}
+
+.reading {
+  color: var(--accent);
+}

@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { isIban, isIsraeliId, isLuhn, patternMatches } from './detectors';
 import { charSpans } from './geometry';
 import { detailMatches, numberVariants, resolveOverlaps } from './matcher';
+import { linesToItems } from './ocrItems';
 import { buildReplacements, sampleValue } from './replace';
 import { scanPage } from './scan';
 import { buildStream, normalize, normValue } from './text';
@@ -159,5 +160,51 @@ describe('geometry', () => {
     const r = findings[0].rects[0];
     expect(r.x).toBeCloseTo(10 + 8 * 6 - 1.5);
     expect(r.w).toBeCloseTo(9 * 6 + 3);
+  });
+});
+
+describe('scanned pages', () => {
+  const fuzzy = (text: string, details: Partial<Details>) => {
+    const t = norm(text);
+    return resolveOverlaps(detailMatches(t, { ...empty, ...details }, true), []).map((m) => ({
+      text: t.slice(m.start, m.end),
+      note: m.note,
+    }));
+  };
+
+  it('turns OCR words into items on a shared line box', () => {
+    const items = linesToItems(
+      [
+        {
+          bbox: { x0: 30, y0: 60, x1: 300, y1: 90 },
+          words: [
+            { text: 'Dana', confidence: 90, bbox: { x0: 30, y0: 66, x1: 120, y1: 90 } },
+            { text: 'לוי', confidence: 80, bbox: { x0: 150, y0: 60, x1: 210, y1: 88 } },
+            { text: '~', confidence: 3, bbox: { x0: 250, y0: 60, x1: 300, y1: 88 } },
+          ],
+        },
+      ],
+      3,
+    );
+    expect(items.map((i) => i.str)).toEqual(['Dana', 'לוי']);
+    expect(items[0].y).toBe(items[1].y);
+    expect(items[0].x).toBe(10);
+    expect(items[0].w).toBe(30);
+    expect(items.map((i) => i.rtl)).toEqual([false, true]);
+    expect(buildStream(items).text).toBe('Dana לוי');
+  });
+
+  it('accepts one misread character in longer values and marks it', () => {
+    expect(fuzzy('Tenant: Dana Lcvi', { name: ['Dana Levi'] })).toEqual([
+      { text: 'dana lcvi', note: 'Close match in a scan, please check' },
+    ]);
+    expect(fuzzy('Dana Levi', { name: ['Dana Levi'] })).toEqual([{ text: 'dana levi', note: undefined }]);
+    // Too short to match loosely: "Lena" is a different name, not a misread "Dana".
+    expect(fuzzy('Lena', { name: ['Dana'] })).toEqual([]);
+  });
+
+  it('reads look-alike letters as digits in numbers', () => {
+    expect(fuzzy('ID O123456l8', { id: ['012345618'] }).map((m) => m.text)).toEqual(['o123456l8']);
+    expect(hits('ID O123456l8', { id: ['012345618'] })).toEqual([]);
   });
 });

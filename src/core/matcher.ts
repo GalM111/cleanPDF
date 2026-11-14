@@ -71,8 +71,41 @@ function numberRegex(field: DetailField, digits: string): RegExp {
   return new RegExp(`(?<!\\d)${plus}${digits.split('').join(DIGIT_SEP)}(?!\\d)`, 'g');
 }
 
-/** Layer 1: every occurrence of the user's own details in normalised text. */
-export function detailMatches(text: string, details: Details): RawMatch[] {
+// Letters that a scan often shows in place of a digit (text is lower-cased).
+const LOOKALIKE: Record<string, string> = { 0: '[0oq]', 1: '[1li|!]', 2: '[2z]', 5: '[5s]', 8: '[8b]' };
+const FUZZY_NOTE = 'Close match in a scan, please check';
+// Shorter values are not matched loosely: one changed letter is another word.
+const FUZZY_MIN = 6;
+
+/** A number as a scan may show it, with look-alike letters in place of digits. */
+function fuzzyNumberRegex(field: DetailField, digits: string): RegExp {
+  const plus = field === 'phone' ? '\\+?' : '';
+  const body = digits
+    .split('')
+    .map((d) => LOOKALIKE[d] ?? d)
+    .join(DIGIT_SEP);
+  return new RegExp(`(?<![\\p{L}\\p{N}])${plus}${body}(?![\\p{L}\\p{N}])`, 'gu');
+}
+
+/** A text value with any one of its characters misread. */
+function fuzzyTextRegex(variant: string): RegExp | null {
+  const chars = [...variant];
+  if (chars.filter((c) => c !== ' ').length < FUZZY_MIN) return null;
+  const prefix = HEBREW_START.test(variant) ? HEBREW_PREFIX : '';
+  const piece = (c: string) => (c === ' ' ? '\\s+' : escapeRegex(c));
+  const alternatives: string[] = [];
+  chars.forEach((c, i) => {
+    if (c === ' ') return;
+    alternatives.push(chars.map((x, k) => (k === i ? '[\\p{L}\\p{N}]' : piece(x))).join(''));
+  });
+  return new RegExp(`${WORD_START}${prefix}(?:${alternatives.join('|')})${WORD_END}`, 'gu');
+}
+
+/**
+ * Layer 1: every occurrence of the user's own details in normalised text.
+ * With `fuzzy` (pages read from a scan) small reading errors are allowed.
+ */
+export function detailMatches(text: string, details: Details, fuzzy = false): RawMatch[] {
   const matches: RawMatch[] = [];
   for (const field of Object.keys(details) as DetailField[]) {
     for (const value of details[field]) {
@@ -92,6 +125,18 @@ export function detailMatches(text: string, details: Details): RawMatch[] {
             source: 'details',
             note,
           });
+        }
+      }
+      if (!fuzzy) continue;
+      // After the exact matches, so an exact match of the same text wins.
+      for (const variant of variants) {
+        const re = isNumber ? fuzzyNumberRegex(field, variant) : fuzzyTextRegex(variant);
+        if (!re) continue;
+        for (const m of text.matchAll(re)) {
+          const start = m.index;
+          const end = m.index + m[0].length;
+          if (matches.some((x) => x.start === start && x.end === end)) continue;
+          matches.push({ start, end, kind, key, source: 'details', note: FUZZY_NOTE });
         }
       }
     }
