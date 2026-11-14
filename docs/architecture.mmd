@@ -1,0 +1,57 @@
+%% Component architecture: everything runs on the user's device, no backend.
+flowchart TB
+    Host["Static host / CDN<br/>(app code, OCR data, name model)"]
+
+    subgraph Device["User's browser - the document never leaves this box"]
+        direction TB
+
+        subgraph UI["UI thread (React + TypeScript, English + Hebrew)"]
+            Profile["My details form<br/>names, ID, phone, address, bank account, free text"]
+            Upload["Upload / drag and drop"]
+            Review["Review screen<br/>page preview + two lists: Your details / Also found<br/>hide, keep, replace, hide everywhere, ignore, manual box"]
+            Export["Export / download"]
+        end
+
+        subgraph Workers["Web Workers (heavy work, off the UI thread)"]
+            Parse["PDF parser<br/>PDF.js: render pages, extract text + positions<br/>normalise right-to-left text order"]
+            OCR["OCR<br/>Tesseract.js (eng + heb): scanned pages, images,<br/>and pages whose text layer is garbled"]
+            Norm["Text normaliser<br/>one text stream per page, mapped back to boxes<br/>plus a digits-only stream"]
+            Matcher["Layer 1: My details matcher<br/>variant generator + exact / fuzzy match"]
+            Detect["Layer 2: Also found detectors"]
+            Redact["Redaction engine<br/>paint boxes or placeholders into page images,<br/>rebuild PDF with pdf-lib"]
+            Verify["Verifier<br/>re-read output, confirm no hidden value or metadata remains"]
+        end
+
+        subgraph Detectors["Also found detectors (pluggable)"]
+            Rules["Patterns + checksums<br/>Israeli ID, IL IBAN, card, phone, email, dates"]
+            Labels["Field labels, English + Hebrew<br/>value next to Name / ID / Address / Account"]
+            Codes["Barcodes and QR codes"]
+            Meta["Document metadata and attachments"]
+            NER["Name model, English + Hebrew<br/>(transformers.js, ONNX)"]
+        end
+
+        Store["Session memory only<br/>My details + ignore list<br/>erased when the tab closes, nothing saved"]
+    end
+
+    Host -- "download once, then cached (PWA, works offline)" --> Device
+
+    Profile <--> Store
+    Upload --> Parse
+    Parse -- "no usable text layer" --> OCR
+    Parse --> Norm
+    OCR --> Norm
+    Norm --> Matcher
+    Norm --> Detect
+    Store -- "details + ignore list" --> Matcher
+    Store -- "ignore list" --> Detect
+    Detect --> Rules
+    Detect --> Labels
+    Detect --> Codes
+    Detect --> Meta
+    Detect --> NER
+    Matcher -- "Your details: hidden by default" --> Review
+    Detect -- "Also found: suggestions" --> Review
+    Review -- "hide everywhere / ignore" --> Store
+    Review -- "approved redactions" --> Redact
+    Redact --> Verify
+    Verify --> Export
