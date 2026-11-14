@@ -455,3 +455,22 @@ textarea {
   top: 16px;
   inset-inline-end: 20px;
 }
+
+.result.ask {
+  background: #fff4dc;
+  color: #7a4a00;
+}
+
+.result .actions {
+  display: flex;
+  gap: 8px;
+}
+
+.result .actions button {
+  padding: 5px 10px;
+  border: 1px solid currentColor;
+  border-radius: 6px;
+  background: #fff;
+  color: inherit;
+  cursor: pointer;
+}

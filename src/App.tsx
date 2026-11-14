@@ -57,8 +57,11 @@ interface Group {
 /** Reading state of a scanned page: waiting, a 0 to 1 progress, or failed. */
 export type ScanState = 'wait' | 'failed' | number;
 
+/** Saves a file through the host page, where a plain download link is not allowed. */
+type HostSave = (request: { filename: string; data: Blob }) => Promise<unknown>;
+
 type Result =
-  | { ok: true; url: string; name: string; size: number }
+  | { ok: true; url: string; blob: Blob; name: string; size: number }
   | { ok: false; leaks: string[] };
 
 const splitValues = (raw: string) =>
@@ -92,6 +95,9 @@ export function App() {
   const [error, setError] = useState('');
   const [result, setResult] = useState<Result | null>(null);
   const [dragging, setDragging] = useState(false);
+  // Asked before export when some items are still undecided.
+  const [confirming, setConfirming] = useState(false);
+  const [hostSave, setHostSave] = useState<HostSave | null>(null);
   const [scans, setScans] = useState<Record<number, ScanState>>({});
   // Goes up when the document changes, so late OCR results are dropped.
   const session = useRef(0);
@@ -129,7 +135,18 @@ export function App() {
       if (r?.ok) URL.revokeObjectURL(r.url);
       return null;
     });
+    setConfirming(false);
   }, [findings, overrides, manual, mode, lang]);
+
+  // Some hosts that embed the app block download links and offer their own
+  // save dialog instead. Without such a host this stays null.
+  useEffect(() => {
+    const host = (window as { claude?: { use?: (name: string) => Promise<{ save: HostSave } | null> } }).claude;
+    void host
+      ?.use?.('downloads')
+      .then((d) => d && setHostSave(() => d.save))
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     document.documentElement.lang = lang;
@@ -249,13 +266,14 @@ export function App() {
     setRaw((r) => ({ ...r, [field]: r[field] ? `${r[field]}\n${g.text}` : g.text }));
   }
 
-  async function runExport() {
+  async function runExport(confirmed = false) {
     if (!loaded) return;
-    if (
-      undecided > 0 &&
-      !window.confirm(t.confirmUndecided(undecided))
-    )
+    if (undecided > 0 && !confirmed) {
+      setConfirming(true);
       return;
+    }
+    setConfirming(false);
+    setError('');
 
     const boxes: DrawBox[][] = loaded.pages.map(() => []);
     for (const f of findings.filter(isHidden)) {
@@ -283,9 +301,10 @@ export function App() {
         setResult({ ok: false, leaks: check.leaks });
         return;
       }
-      const url = URL.createObjectURL(new Blob([bytes as BlobPart], { type: 'application/pdf' }));
+      const blob = new Blob([bytes as BlobPart], { type: 'application/pdf' });
+      const url = URL.createObjectURL(blob);
       const name = loaded.name.replace(/\.pdf$/i, '') + '-clean.pdf';
-      setResult({ ok: true, url, name, size: bytes.length });
+      setResult({ ok: true, url, blob, name, size: bytes.length });
     } catch {
       setError(t.errBuild);
     } finally {
@@ -438,16 +457,41 @@ export function App() {
         {mode === 'sample' && (
           <p className="hint">{t.sampleWarning}</p>
         )}
-        <button type="button" className="primary" disabled={!!busy || scanning > 0} onClick={runExport}>
+        <button type="button" className="primary" disabled={!!busy || scanning > 0} onClick={() => runExport()}>
           {busy || (scanning > 0 ? t.readingScans(scanning) : t.create(hiddenCount))}
         </button>
+        {confirming && (
+          <div className="result ask">
+            <p>{t.confirmUndecided(undecided)}</p>
+            <span className="actions">
+              <button type="button" onClick={() => runExport(true)}>
+                {t.exportAnyway}
+              </button>
+              <button type="button" onClick={() => setConfirming(false)}>
+                {t.cancel}
+              </button>
+            </span>
+          </div>
+        )}
         {error && <p className="error">{error}</p>}
         {result?.ok && (
           <div className="result ok">
             <p>{t.checked}</p>
-            <a className="primary" href={result.url} download={result.name}>
-              {t.download(result.name, Math.round(result.size / 1024))}
-            </a>
+            {hostSave ? (
+              <button
+                type="button"
+                className="primary"
+                onClick={() =>
+                  hostSave({ filename: result.name, data: result.blob }).catch(() => setError(t.saveDeclined))
+                }
+              >
+                {t.download(result.name, Math.round(result.size / 1024))}
+              </button>
+            ) : (
+              <a className="primary" href={result.url} download={result.name}>
+                {t.download(result.name, Math.round(result.size / 1024))}
+              </a>
+            )}
           </div>
         )}
         {result && !result.ok && (
