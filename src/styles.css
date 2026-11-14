@@ -10,6 +10,8 @@
   --ok: #17794a;
   font-family: 'Segoe UI', system-ui, -apple-system, Arial, sans-serif;
   color: var(--ink);
+  /* The app has one light look; keep controls light on dark-mode devices too. */
+  color-scheme: light;
 }
 
 * {
@@ -43,6 +45,7 @@ h3 {
 button {
   font: inherit;
   cursor: pointer;
+  color: var(--ink);
 }
 
 .link {
@@ -161,6 +164,8 @@ aside header {
 textarea {
   width: 100%;
   font: inherit;
+  color: var(--ink);
+  background: var(--panel);
   padding: 5px 8px;
   border: 1px solid var(--line);
   border-radius: 6px;
@@ -371,6 +376,8 @@ textarea {
 
 .modes label {
   display: flex;
+  background: var(--panel);
+  color: var(--ink);
   align-items: center;
   gap: 8px;
   padding: 6px 8px;
@@ -473,4 +480,13 @@ textarea {
   background: #fff;
   color: inherit;
   cursor: pointer;
+}
+
+textarea::placeholder {
+  color: var(--muted);
+  opacity: 1;
+}
+
+body {
+  color: var(--ink);
 }
