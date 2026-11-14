@@ -36,6 +36,7 @@ export function scanPage(
       key: m.key,
       rects,
       note: m.note,
+      review: m.review,
     });
   }
   return findings;

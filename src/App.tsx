@@ -77,9 +77,11 @@ const splitValues = (raw: string) =>
 function groupBy(findings: Finding[]): Group[] {
   const map = new Map<string, Group>();
   for (const f of findings) {
-    const g = map.get(f.key);
+    // Uncertain matches get a row of their own, so they are decided separately.
+    const key = f.review ? `${f.key}|review:${f.text}` : f.key;
+    const g = map.get(key);
     if (g) g.items.push(f);
-    else map.set(f.key, { key: f.key, kind: f.kind, text: f.text, note: f.note, items: [f] });
+    else map.set(key, { key, kind: f.kind, text: f.text, note: f.note, items: [f] });
   }
   return [...map.values()];
 }
@@ -112,10 +114,12 @@ export function App() {
     return loaded.pages.flatMap((p, i) => scanPage(i, p, details, ignore, canvasMeasure));
   }, [loaded, details, ignored]);
 
-  const isHidden = (f: Finding) => overrides[f.id] ?? f.source === 'details';
+  const isHidden = (f: Finding) => overrides[f.id] ?? (f.source === 'details' && !f.review);
   const mine = useMemo(() => groupBy(findings.filter((f) => f.source === 'details')), [findings]);
   const others = useMemo(() => groupBy(findings.filter((f) => f.source === 'found')), [findings]);
-  const undecided = findings.filter((f) => f.source === 'found' && !(f.id in overrides)).length;
+  const undecided = findings.filter(
+    (f) => (f.source === 'found' || f.review) && !(f.id in overrides),
+  ).length;
   const hiddenCount = findings.filter(isHidden).length + manual.length;
   const replacements = useMemo(
     () => buildReplacements(findings.filter(isHidden), mode),
@@ -248,7 +252,7 @@ export function App() {
     if (
       undecided > 0 &&
       !window.confirm(
-        `${undecided} suggested item(s) are still undecided and will stay visible. Export anyway?`,
+        `${undecided} item(s) are still undecided and will stay visible. Export anyway?`,
       )
     )
       return;

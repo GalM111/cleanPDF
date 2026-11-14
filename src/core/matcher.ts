@@ -9,6 +9,8 @@ export interface RawMatch {
   key: string;
   source: 'details' | 'found';
   note?: string;
+  /** Too uncertain to hide without asking: shown, and hidden only if the user says so. */
+  review?: boolean;
 }
 
 export const WORD_START = '(?<![\\p{L}\\p{N}])';
@@ -115,7 +117,9 @@ export function detailMatches(text: string, details: Details, fuzzy = false): Ra
       const variants = isNumber ? numberVariants(field, value) : textVariants(field, value);
       for (const variant of variants) {
         const re = isNumber ? numberRegex(field, variant) : textRegex(variant);
-        const note = !isNumber && variant.length <= 2 ? 'Short word, please check' : undefined;
+        // A very short name is often also an ordinary word (Hebrew גל is
+        // "wave"), so it is shown and left for the user to decide.
+        const review = !isNumber && variant.length <= 2;
         for (const m of text.matchAll(re)) {
           matches.push({
             start: m.index,
@@ -123,7 +127,8 @@ export function detailMatches(text: string, details: Details, fuzzy = false): Ra
             kind,
             key,
             source: 'details',
-            note,
+            note: review ? 'Short word, may be an ordinary word. Tick to hide' : undefined,
+            review: review || undefined,
           });
         }
       }

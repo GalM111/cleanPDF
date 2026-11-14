@@ -163,6 +163,18 @@ describe('geometry', () => {
   });
 });
 
+describe('short names', () => {
+  it('leaves a two-letter name for review instead of hiding it', () => {
+    const t = norm('גל כהן שילם. היה גל גדול בים.');
+    const all = detailMatches(t, { ...empty, name: ['גל כהן'] });
+    const full = all.find((m) => t.slice(m.start, m.end) === 'גל כהנ');
+    const alone = all.filter((m) => t.slice(m.start, m.end) === 'גל');
+    expect(full?.review).toBeUndefined();
+    expect(alone.length).toBeGreaterThan(0);
+    expect(alone.every((m) => m.review)).toBe(true);
+  });
+});
+
 describe('scanned pages', () => {
   const fuzzy = (text: string, details: Partial<Details>) => {
     const t = norm(text);

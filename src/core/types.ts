@@ -53,6 +53,8 @@ export interface Finding {
   key: string;
   rects: Rect[];
   note?: string;
+  /** Not hidden until the user decides (uncertain match). */
+  review?: boolean;
 }
 
 export interface ManualBox {
