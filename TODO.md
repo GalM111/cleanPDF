@@ -12,7 +12,6 @@ Ordered by priority. See [docs/PLAN.md](docs/PLAN.md) for the full product plan.
 ## P1: Project setup
 
 - [x] Rewrite `README.md` as UTF-8 (it was UTF-16 with only a title): what the app does, the privacy promise, commands, link to the plan.
-- [ ] Add a LICENSE (decide first whether the project is open source).
 - [x] CI: GitHub Actions workflow running `npm ci`, lint, `npm test`, `npm run build`.
 - [x] Pin `vite`, `vitest` and `@vitejs/plugin-react` (they were set to `"latest"`).
 - [x] Add ESLint (with the React hooks rules) and Prettier.
@@ -45,4 +44,4 @@ Ordered by priority. See [docs/PLAN.md](docs/PLAN.md) for the full product plan.
 - [ ] Move scanning and export into Web Workers.
 - [ ] Cap the canvas size for very large pages so export does not run out of memory.
 - [ ] Warn that context (job title, salary, employer) can still identify the user.
-- [ ] Decide the open questions: app name, free versus paid, when to open-source.
+- [ ] Decide the open questions: app name, free versus paid.
