@@ -9,8 +9,9 @@ Browser-only app that hides personal details in a PDF and exports a flattened co
 - `npm run lint`: ESLint
 - `npm run format:check` / `npm run format`: Prettier
 - `npm run build`: `tsc --noEmit` + Vite build
+- `npm run check:build`: after a build, checks the CSP, that no unknown outside address is in `dist/`, and the bundle size budget (`scripts/check-build.mjs`)
 
-Run lint, format check, tests and build before committing; CI runs the same.
+Run lint, format check, tests, build and `check:build` before committing; CI (`.github/workflows/ci.yml`) runs the same on every push. A new outside hostname in the build fails CI: add it to `ALLOWED_HOSTS` in `scripts/check-build.mjs` only if it is never contacted (a namespace or a link in an error message).
 
 ## Rules that matter
 

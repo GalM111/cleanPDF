@@ -12,12 +12,20 @@ Ordered by priority. See [docs/PLAN.md](docs/PLAN.md) for the full product plan.
 ## P1: Project setup
 
 - [x] Rewrite `README.md` as UTF-8 (it was UTF-16 with only a title): what the app does, the privacy promise, commands, link to the plan.
-- [x] CI: GitHub Actions workflow running `npm ci`, lint, `npm test`, `npm run build`.
 - [x] Pin `vite`, `vitest` and `@vitejs/plugin-react` (they were set to `"latest"`).
 - [x] Add ESLint (with the React hooks rules) and Prettier.
 - [x] Make `scripts/make-sample.mjs` find a Hebrew-capable font on Windows, macOS and Linux.
 - [x] Add `.gitattributes` for consistent line endings and binary files.
 - [x] Add `CLAUDE.md` with architecture notes and commands.
+
+## CI
+
+- [x] Checks on every push: lint, format, unit tests, build (`.github/workflows/ci.yml`).
+- [x] Privacy check on the build: CSP present, no unknown outside addresses, size budget (`scripts/check-build.mjs`).
+- [ ] End-to-end job with Playwright against the production build (see P2).
+- [ ] Dependabot for npm and GitHub Actions; `npm audit --omit=dev` in CI.
+- [ ] Deploy `dist/` from `main` (choose GitHub Pages, Cloudflare Pages or Netlify).
+- [ ] On GitHub: protect `main` and require the CI checks to pass.
 
 ## P2: Tests
 

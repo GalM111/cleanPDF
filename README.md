@@ -27,16 +27,17 @@ The app finds a lot, but not everything. Always look through every page of the o
 Needs Node.js 20.19 or later.
 
 ```bash
-npm install        # also copies PDF.js fonts and character maps into public/pdfjs
-npm run dev        # http://localhost:5173
-npm test           # unit tests (Vitest)
-npm run lint       # ESLint
-npm run format     # Prettier
-npm run build      # type check + production build in dist/
-npm run sample     # regenerate public/sample.pdf (needs a font with Hebrew letters)
+npm install         # also copies PDF.js fonts and character maps into public/pdfjs
+npm run dev         # http://localhost:5173
+npm test            # unit tests (Vitest)
+npm run lint        # ESLint
+npm run format      # Prettier
+npm run build       # type check + production build in dist/
+npm run check:build # CSP in place, no outside addresses, size budget (run after build)
+npm run sample      # regenerate public/sample.pdf (needs a font with Hebrew letters)
 ```
 
-The production build is a static site; host `dist/` anywhere.
+The production build is a static site; host `dist/` anywhere. CI runs lint, format check, tests, build and `check:build` on every push.
 
 ## Project layout
 
