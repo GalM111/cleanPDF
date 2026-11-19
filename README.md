@@ -14,13 +14,13 @@ The app finds a lot, but not everything. Always look through every page of the o
 
 ## Output styles
 
-| Style | Looks like |
-|---|---|
-| Black | Solid black boxes |
-| White | Solid white boxes |
-| Page colour | Boxes in the page's background colour |
-| Labels | `[NAME]`, `[ID NUMBER]`; numbered (`[NAME 1]`, `[NAME 2]`) when there are several values of one kind |
-| Sample data | Made-up values in the original text colour |
+| Style       | Looks like                                                                                           |
+| ----------- | ---------------------------------------------------------------------------------------------------- |
+| Black       | Solid black boxes                                                                                    |
+| White       | Solid white boxes                                                                                    |
+| Page colour | Boxes in the page's background colour                                                                |
+| Labels      | `[NAME]`, `[ID NUMBER]`; numbered (`[NAME 1]`, `[NAME 2]`) when there are several values of one kind |
+| Sample data | Made-up values in the original text colour                                                           |
 
 ## Development
 

@@ -84,7 +84,10 @@ export function PageView(props: Props) {
       <div className="page-title">
         Page {index + 1}
         {!props.hasText && (
-          <span className="warn"> — no readable text here (probably a scan). Draw boxes by hand.</span>
+          <span className="warn">
+            {' '}
+            — no readable text here (probably a scan). Draw boxes by hand.
+          </span>
         )}
       </div>
       <div className="sheet" style={{ aspectRatio: `${width} / ${height}` }}>
@@ -109,7 +112,9 @@ export function PageView(props: Props) {
                 title={`${f.kind}: ${f.text} — click to ${hidden ? 'keep' : 'hide'}`}
                 onClick={() => props.onToggle(f)}
               >
-                {text && (props.mode === 'template' || i === main) && <span dir="auto">{text}</span>}
+                {text && (props.mode === 'template' || i === main) && (
+                  <span dir="auto">{text}</span>
+                )}
               </button>
             ));
           })}

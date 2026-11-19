@@ -7,7 +7,15 @@ import { scanPage } from './scan';
 import { buildStream, normalize, normValue } from './text';
 import type { Details, Finding, PageText, TextItem } from './types';
 
-const empty: Details = { name: [], id: [], phone: [], account: [], email: [], address: [], other: [] };
+const empty: Details = {
+  name: [],
+  id: [],
+  phone: [],
+  account: [],
+  email: [],
+  address: [],
+  other: [],
+};
 const norm = (s: string) => normalize(s).text;
 const hits = (text: string, details: Partial<Details>) => {
   const t = norm(text);
@@ -32,7 +40,12 @@ describe('normalisation', () => {
   });
 
   it('joins touching items into one word and breaks lines', () => {
-    const s = buildStream([item('Da', 0, 0), item('na', 12, 0), item('Levi', 40, 0), item('next', 0, 30)]);
+    const s = buildStream([
+      item('Da', 0, 0),
+      item('na', 12, 0),
+      item('Levi', 40, 0),
+      item('next', 0, 30),
+    ]);
     expect(s.text).toBe('Dana Levi\nnext');
   });
 });
@@ -55,7 +68,10 @@ describe('details matcher', () => {
   });
 
   it('finds an ID with separators and without leading zeros', () => {
-    expect(hits('ID 01234-5678 or 12345678', { id: ['012345678'] })).toEqual(['01234-5678', '12345678']);
+    expect(hits('ID 01234-5678 or 12345678', { id: ['012345678'] })).toEqual([
+      '01234-5678',
+      '12345678',
+    ]);
     expect(hits('ref 9912345678', { id: ['012345678'] })).toEqual([]);
   });
 
@@ -81,7 +97,9 @@ describe('detectors', () => {
   });
 
   it('suggests emails, phones, valid IDs and labelled values', () => {
-    const t = norm('Name: Yossi Cohen\nmail yossi@example.com tel 03-1234567 id 123456782 ref 123456789');
+    const t = norm(
+      'Name: Yossi Cohen\nmail yossi@example.com tel 03-1234567 id 123456782 ref 123456789',
+    );
     const found = patternMatches(t).map((m) => `${m.kind}=${t.slice(m.start, m.end)}`);
     expect(found).toContain('Email=yossi@example.com');
     expect(found).toContain('Phone=03-1234567');
@@ -100,7 +118,11 @@ describe('detectors', () => {
 
 describe('scan', () => {
   it('hides a whole email address that contains the user name', () => {
-    const page: PageText = { width: 600, height: 800, items: [item('Mail dana.levi@example.com now', 10, 20)] };
+    const page: PageText = {
+      width: 600,
+      height: 800,
+      items: [item('Mail dana.levi@example.com now', 10, 20)],
+    };
     const findings = scanPage(0, page, { ...empty, name: ['Dana Levi'] });
     expect(findings.map((f) => [f.source, f.kind, f.text])).toEqual([
       ['details', 'Email', 'dana.levi@example.com'],
@@ -133,11 +155,23 @@ describe('replacements', () => {
       key,
       rects: [],
     });
-    const hidden = [f('a', 'k1', 'Dana Levi'), f('b', 'k2', 'Yossi Cohen'), f('c', 'k1', 'Dana Levi')];
+    const hidden = [
+      f('a', 'k1', 'Dana Levi'),
+      f('b', 'k2', 'Yossi Cohen'),
+      f('c', 'k1', 'Dana Levi'),
+    ];
     const labels = buildReplacements([...hidden], 'template');
-    expect([labels.get('a'), labels.get('b'), labels.get('c')]).toEqual(['[NAME 1]', '[NAME 2]', '[NAME 1]']);
+    expect([labels.get('a'), labels.get('b'), labels.get('c')]).toEqual([
+      '[NAME 1]',
+      '[NAME 2]',
+      '[NAME 1]',
+    ]);
     const samples = buildReplacements([...hidden], 'sample');
-    expect([samples.get('a'), samples.get('b'), samples.get('c')]).toEqual(['John Doe', 'Jane Roe', 'John Doe']);
+    expect([samples.get('a'), samples.get('b'), samples.get('c')]).toEqual([
+      'John Doe',
+      'Jane Roe',
+      'John Doe',
+    ]);
     expect(buildReplacements([...hidden], 'black').size).toBe(0);
   });
 });
@@ -152,7 +186,11 @@ describe('geometry', () => {
   });
 
   it('returns boxes only for the matched part of an item', () => {
-    const page: PageText = { width: 600, height: 800, items: [item('Tenant: Dana Levi, born 1990', 10, 20)] };
+    const page: PageText = {
+      width: 600,
+      height: 800,
+      items: [item('Tenant: Dana Levi, born 1990', 10, 20)],
+    };
     const findings = scanPage(0, page, { ...empty, name: ['Dana Levi'] });
     expect(findings).toHaveLength(1);
     expect(findings[0].text).toBe('Dana Levi');

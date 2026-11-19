@@ -59,8 +59,7 @@ interface Group {
 }
 
 type Result = (
-  | { ok: true; url: string; name: string; size: number }
-  | { ok: false; leaks: string[] }
+  { ok: true; url: string; name: string; size: number } | { ok: false; leaks: string[] }
 ) & {
   /** The state the file was built from; the result is stale once any of it changes. */
   inputs: unknown[];
@@ -204,7 +203,8 @@ export function App() {
       warnings.push(
         `${pageList(textless)} had no readable text, so nothing on ${textless.length > 1 ? 'them' : 'it'} was found automatically. Only boxes you drew by hand will be hidden there.`,
       );
-    if (warnings.length > 0 && !window.confirm(`${warnings.join('\n\n')}\n\nExport anyway?`)) return;
+    if (warnings.length > 0 && !window.confirm(`${warnings.join('\n\n')}\n\nExport anyway?`))
+      return;
 
     const boxes: DrawBox[][] = loaded.pages.map(() => []);
     for (const f of findings.filter(isHidden)) {
@@ -229,7 +229,10 @@ export function App() {
         setBusy(`Building page ${p} of ${n}…`),
       );
       setBusy('Checking the result…');
-      const check = await verifyPdf(bytes, findings.filter(isHidden).map((f) => f.text));
+      const check = await verifyPdf(
+        bytes,
+        findings.filter(isHidden).map((f) => f.text),
+      );
       if (!check.ok) {
         setResult({ ok: false, leaks: check.leaks, inputs: builtFrom });
         return;
@@ -257,8 +260,8 @@ export function App() {
       <main className="landing">
         <h1>cleanPDF</h1>
         <p className="lead">
-          Hide your personal details in a document before you send it. The file is processed on
-          this device only and nothing is saved.
+          Hide your personal details in a document before you send it. The file is processed on this
+          device only and nothing is saved.
         </p>
         <label
           className={`drop ${dragging ? 'over' : ''}`}
@@ -269,7 +272,11 @@ export function App() {
           onDragLeave={() => setDragging(false)}
           onDrop={onDrop}
         >
-          <input type="file" accept="application/pdf" onChange={(e) => loadFile(e.target.files?.[0])} />
+          <input
+            type="file"
+            accept="application/pdf"
+            onChange={(e) => loadFile(e.target.files?.[0])}
+          />
           <strong>{busy || 'Drop a PDF here or click to choose'}</strong>
         </label>
         <button type="button" className="link" onClick={loadSample}>
@@ -303,7 +310,9 @@ export function App() {
               dir="auto"
               title="Show on page"
               onClick={() =>
-                document.getElementById(`page-${g.items[0].page}`)?.scrollIntoView({ behavior: 'smooth' })
+                document
+                  .getElementById(`page-${g.items[0].page}`)
+                  ?.scrollIntoView({ behavior: 'smooth' })
               }
             >
               {g.text}
@@ -312,7 +321,11 @@ export function App() {
             {g.note && <span className="note">{g.note}</span>}
             {suggestion && (
               <span className="actions">
-                <button type="button" onClick={() => adopt(g)} title="Add to My details and hide every form of it">
+                <button
+                  type="button"
+                  onClick={() => adopt(g)}
+                  title="Add to My details and hide every form of it"
+                >
                   Hide everywhere
                 </button>
                 <button type="button" onClick={() => setIgnored((i) => [...i, g.key])}>
@@ -357,9 +370,7 @@ export function App() {
         <h2>2. Review</h2>
         <h3>Your details in this document</h3>
         {mine.length ? groupList(mine, false) : <p className="hint">Nothing matched yet.</p>}
-        <h3>
-          Also found {undecided > 0 && <span className="badge">{undecided} undecided</span>}
-        </h3>
+        <h3>Also found {undecided > 0 && <span className="badge">{undecided} undecided</span>}</h3>
         {others.length ? (
           groupList(others, true)
         ) : (
@@ -376,7 +387,12 @@ export function App() {
         <div className="modes">
           {MODES.map((m) => (
             <label key={m.mode} className={mode === m.mode ? 'on' : ''} title={m.hint}>
-              <input type="radio" name="mode" checked={mode === m.mode} onChange={() => setMode(m.mode)} />
+              <input
+                type="radio"
+                name="mode"
+                checked={mode === m.mode}
+                onChange={() => setMode(m.mode)}
+              />
               <span className={`swatch fill-${m.mode}`}>
                 {m.mode === 'template' ? '[NAME]' : m.mode === 'sample' ? 'John Doe' : ''}
               </span>
@@ -386,8 +402,8 @@ export function App() {
         </div>
         {mode === 'sample' && (
           <p className="hint">
-            Sample data makes the file look like a real document about someone else. Tell the
-            person you send it to that the details are made up.
+            Sample data makes the file look like a real document about someone else. Tell the person
+            you send it to that the details are made up.
           </p>
         )}
         {textless.length > 0 && (
@@ -404,12 +420,10 @@ export function App() {
         {current?.ok && (
           <div className="result ok">
             <p>
-              The new file is made of page images only: it has no text, metadata or attachments,
-              and the boxed areas are painted over for good.
+              The new file is made of page images only: it has no text, metadata or attachments, and
+              the boxed areas are painted over for good.
             </p>
-            <p>
-              Anything not boxed is still visible. Look through every page before you send it.
-            </p>
+            <p>Anything not boxed is still visible. Look through every page before you send it.</p>
             <a className="primary" href={current.url} download={current.name}>
               Download {current.name} ({Math.round(current.size / 1024)} KB)
             </a>

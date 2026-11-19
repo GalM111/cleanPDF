@@ -13,7 +13,15 @@ export const MODES: { mode: OutputMode; label: string; hint: string }[] = [
 
 // Candidates in order of preference. Several lengths, so a sample can be
 // picked that fits the space of the value it replaces.
-const EN_NAMES = ['John Doe', 'Jane Roe', 'Alex Smith', 'Sam Brown', 'Chris Green', 'Jo Poe', 'Li Wu'];
+const EN_NAMES = [
+  'John Doe',
+  'Jane Roe',
+  'Alex Smith',
+  'Sam Brown',
+  'Chris Green',
+  'Jo Poe',
+  'Li Wu',
+];
 const HE_NAMES = ['ישראל ישראלי', 'משה כהן', 'נועה בר', 'רון טל', 'יעל גור', 'דן לב'];
 const EMAILS = ['john.doe@example.com', 'jane.roe@example.com', 'jd@example.com', 'a@b.co'];
 const EN_ADDRESSES = ['# Sample St, Sampletown', '# Main St, Anytown', '# Main St'];
