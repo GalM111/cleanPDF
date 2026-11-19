@@ -19,8 +19,8 @@ export function openPdf(data: Uint8Array): Promise<PDFDocumentProxy> {
     cMapUrl: `${assets}cmaps/`,
     cMapPacked: true,
     standardFontDataUrl: `${assets}standard_fonts/`,
-    // Keeps PDF.js from compiling font code with eval, which the
-    // Content-Security-Policy blocks.
+    // Never compile code from a document (the path past PDF.js exploits used);
+    // the Content-Security-Policy would block it anyway.
     isEvalSupported: false,
   }).promise;
 }
@@ -46,7 +46,81 @@ export async function extractPage(page: PDFPageProxy): Promise<PageText> {
       font: content.styles[it.fontName]?.fontFamily ?? 'sans-serif',
     });
   }
-  return { items, width: viewport.width, height: viewport.height };
+  const marks = await addAnnotationText(page, viewport, items);
+  const images = await countImages(page);
+  return { items, width: viewport.width, height: viewport.height, images, marks };
+}
+
+/** Annotation types that draw nothing personal: links, note icons, popups. */
+const HARMLESS = new Set(['Link', 'Popup', 'Text']);
+
+/**
+ * Form fields and text comments are drawn on the page, but they are not part
+ * of the page text. Their text is added as extra items (covered whole when it
+ * matches). Returns how many other marks are drawn: signatures, stamps,
+ * drawings and empty or unreadable fields, which the user should check.
+ */
+async function addAnnotationText(
+  page: PDFPageProxy,
+  viewport: ReturnType<PDFPageProxy['getViewport']>,
+  items: TextItem[],
+): Promise<number> {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const annotations: any[] = await page.getAnnotations({ intent: 'display' }).catch(() => []);
+  let marks = 0;
+  for (const a of annotations) {
+    if (HARMLESS.has(a.subtype) || !Array.isArray(a.rect)) continue;
+    let text: string;
+    if (a.subtype === 'Widget') {
+      if (a.checkBox || a.radioButton || a.pushButton) continue;
+      const value = a.fieldValue;
+      text = Array.isArray(value) ? value.join(' ') : typeof value === 'string' ? value : '';
+      if (!text.trim() && a.fieldType !== 'Sig') continue; // an empty field shows nothing
+    } else {
+      text = a.contentsObj?.str ?? '';
+    }
+    if (!text.trim()) {
+      marks++;
+      continue;
+    }
+    const [x1, y1, x2, y2] = viewport.convertToViewportRectangle(a.rect);
+    items.push({
+      str: text.replace(/\s+/g, ' ').trim(),
+      x: Math.min(x1, x2),
+      y: Math.min(y1, y2),
+      w: Math.abs(x2 - x1),
+      h: Math.abs(y2 - y1),
+      rtl: /[\u0590-\u05FF]/.test(text),
+      font: 'sans-serif',
+      whole: true,
+    });
+    marks++;
+  }
+  return marks;
+}
+
+// Pictures smaller than this (in their own pixels) are icons and rules.
+const MIN_IMAGE_SIDE = 100;
+
+/** Counts the pictures drawn on a page that are big enough to hold text. */
+async function countImages(page: PDFPageProxy): Promise<number> {
+  const { OPS } = pdfjs;
+  const ops = await page.getOperatorList().catch(() => null);
+  if (!ops) return 0;
+  let count = 0;
+  ops.fnArray.forEach((fn, i) => {
+    const args = ops.argsArray[i];
+    let w: number;
+    let h: number;
+    if (fn === OPS.paintImageXObject) [, w, h] = args;
+    else if (fn === OPS.paintInlineImageXObject || fn === OPS.paintImageMaskXObject)
+      ({ width: w, height: h } = args[0] ?? {});
+    else if (fn === OPS.paintImageXObjectRepeat || fn === OPS.paintInlineImageXObjectGroup)
+      w = h = MIN_IMAGE_SIDE;
+    else return;
+    if (w >= MIN_IMAGE_SIDE && h >= MIN_IMAGE_SIDE) count++;
+  });
+  return count;
 }
 
 // Safari (iPhone, iPad, Mac) leaves a canvas blank above about 16.7 million

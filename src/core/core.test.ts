@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { isIban, isIsraeliId, isLuhn, patternMatches } from './detectors';
+import { safeOutputName } from './filename';
 import { charSpans } from './geometry';
 import { detailMatches, numberVariants, resolveOverlaps } from './matcher';
 import { buildReplacements, sampleValue } from './replace';
@@ -197,5 +198,54 @@ describe('geometry', () => {
     const r = findings[0].rects[0];
     expect(r.x).toBeCloseTo(10 + 8 * 6 - 1.5);
     expect(r.w).toBeCloseTo(9 * 6 + 3);
+  });
+});
+
+describe('form fields', () => {
+  const field = (str: string, x: number, y: number): TextItem => ({
+    str,
+    x,
+    y,
+    w: 200,
+    h: 20,
+    rtl: false,
+    font: 'sans-serif',
+    whole: true,
+  });
+
+  it('finds values typed into a form field and covers the whole field', () => {
+    const page: PageText = {
+      width: 600,
+      height: 800,
+      items: [item('Full name:', 10, 20), field('Dana Levi 123456782', 100, 16)],
+    };
+    const findings = scanPage(0, page, { ...empty, name: ['Dana Levi'] });
+    const name = findings.find((f) => f.text === 'Dana Levi');
+    expect(name?.rects).toEqual([{ x: 98.5, y: 14.5, w: 203, h: 23 }]);
+    // The ID in the same field is suggested by the detectors as well.
+    expect(findings.some((f) => f.kind === 'ID number' && f.text === '123456782')).toBe(true);
+  });
+
+  it('never joins a field to the page text next to it', () => {
+    const s = buildStream([item('Name', 0, 0), field('Dana', 24, 0)]);
+    expect(s.text).toBe('Name\nDana');
+  });
+});
+
+describe('output file name', () => {
+  it('keeps a harmless name', () => {
+    expect(safeOutputName('rental contract.pdf', ['Dana Levi'])).toBe('rental contract-clean.pdf');
+  });
+
+  it('drops a name that holds a hidden value', () => {
+    expect(safeOutputName('Dana_Levi payslip.PDF', ['Dana Levi'])).toBe('document-clean.pdf');
+    expect(safeOutputName('payslip 123-456-782.pdf', ['123456782'])).toBe('document-clean.pdf');
+    expect(safeOutputName('דנה לוי חוזה.pdf', ['דנה לוי'])).toBe('document-clean.pdf');
+  });
+
+  it('drops a name that looks like personal data even if not hidden', () => {
+    expect(safeOutputName('id 123456782.pdf', [])).toBe('document-clean.pdf');
+    expect(safeOutputName('dana.levi@example.com.pdf', [])).toBe('document-clean.pdf');
+    expect(safeOutputName('052-1234567 bill.pdf', [])).toBe('document-clean.pdf');
   });
 });

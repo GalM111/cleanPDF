@@ -34,7 +34,8 @@ export function buildStream(items: TextItem[]): Stream {
     if (prev) {
       const sameLine =
         Math.abs(prev.y + prev.h / 2 - (it.y + it.h / 2)) < Math.max(prev.h, it.h) * 0.5;
-      if (!sameLine) {
+      // Form fields and comments never run on into the page text.
+      if (!sameLine || it.whole || prev.whole) {
         text += '\n';
         ref.push(null);
       } else {

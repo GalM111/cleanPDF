@@ -23,7 +23,8 @@ Ordered by priority. See [docs/PLAN.md](docs/PLAN.md) for the full product plan.
 - [x] Checks on every push: lint, format, unit tests, build (`.github/workflows/ci.yml`).
 - [x] Privacy check on the build: CSP present, no unknown outside addresses, size budget (`scripts/check-build.mjs`).
 - [ ] End-to-end job with Playwright against the production build (see P2).
-- [ ] Dependabot for npm and GitHub Actions; `npm audit --omit=dev` in CI.
+- [x] Dependabot for npm and GitHub Actions (`.github/dependabot.yml`).
+- [ ] `npm audit --omit=dev` in CI.
 - [x] Deploy `dist/` from `main` to GitHub Pages (`.github/workflows/pages.yml`), gated by the same checks.
 - [ ] On GitHub: protect `main` and require the CI checks to pass.
 

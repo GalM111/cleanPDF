@@ -3,6 +3,8 @@
 // All people and numbers in it are invented.
 // Needs a TrueType font with Hebrew letters. Looks for one on Windows, macOS and
 // Linux; set the SAMPLE_FONT environment variable to use a different file.
+// The numbers are well-known dummies or obviously fake, so they are not
+// meant to match a real person.
 import fontkit from '@pdf-lib/fontkit';
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
@@ -90,12 +92,12 @@ en('Address: 12 Herzl St, Tel Aviv');
 gap();
 en('Landlord');
 en('Name: Yossi Cohen');
-en('ID: 039337423');
-en('Phone: 03-5551234');
+en('ID: 111111118');
+en('Phone: 03-0000000');
 gap();
 en('1. The landlord rents to Dana Levi the apartment at 12 Herzl St, Tel Aviv.');
-en('2. Rent of 5,200 NIS is paid monthly to bank account 12-345-678901.');
-en(`3. Transfers may also use IBAN ${iban('012', '345', '678901')}.`);
+en('2. Rent of 5,200 NIS is paid monthly to bank account 12-999-000001.');
+en(`3. Transfers may also use IBAN ${iban('012', '999', '000001')}.`);
 en('4. Levi Dana confirms receiving two keys. Contact: +972 52-123-4567.');
 gap(24);
 
@@ -109,10 +111,10 @@ he('טלפון: 052-1234567');
 he('כתובת: רחוב הרצל 12, תל אביב');
 gap();
 he('שם המשכיר: יוסי כהן');
-he('ת.ז: 039337423');
+he('ת.ז: 111111118');
 gap();
 he('1. המשכיר משכיר לדנה לוי את הדירה ברחוב הרצל 12, תל אביב.');
-he('2. דמי השכירות ישולמו לחשבון בנק 12-345-678901.');
+he('2. דמי השכירות ישולמו לחשבון בנק 12-999-000001.');
 he('3. ההודעות יישלחו לדנה בדוא"ל dana.levi@example.com או בטלפון 0521234567.');
 
 writeFileSync(join(root, 'public', 'sample.pdf'), await doc.save());

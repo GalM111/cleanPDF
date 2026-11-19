@@ -8,6 +8,7 @@ import {
   type PDFDocumentProxy,
   type PDFPageProxy,
 } from './core/pdf';
+import { safeOutputName } from './core/filename';
 import { scanPage } from './core/scan';
 import type { DetailField, Details, Finding, ManualBox, PageText, Rect } from './core/types';
 import { PageView } from './PageView';
@@ -236,7 +237,10 @@ export function App() {
         setResult({ ok: false, leaks: check.leaks, inputs: builtFrom });
         return;
       }
-      const name = loaded.name.replace(/\.pdf$/i, '') + '-clean.pdf';
+      const name = safeOutputName(loaded.name, [
+        ...findings.filter(isHidden).map((f) => f.text),
+        ...Object.values(details).flat(),
+      ]);
       const file = new File([bytes as BlobPart], name, { type: 'application/pdf' });
       setResult({ ok: true, url: URL.createObjectURL(file), file, inputs: builtFrom });
     } catch (e) {
@@ -412,6 +416,10 @@ export function App() {
             personal.
           </p>
         )}
+        <p className="hint">
+          Barcodes and QR codes are not hidden automatically. Draw a box over them if they may hold
+          an account or customer number.
+        </p>
         <button type="button" className="primary" disabled={!!busy} onClick={runExport}>
           {busy || `Create clean PDF (${hiddenCount} hidden)`}
         </button>
@@ -419,10 +427,10 @@ export function App() {
         {current?.ok && (
           <div className="result ok">
             <p>
-              The new file is made of page images only: it has no text, metadata or attachments, and
-              the boxed areas are painted over for good.
+              The new file holds only pictures of the pages: no text, form data or document details
+              were copied from the original. Open it and check that every box covers what it should
+              before you share it.
             </p>
-            <p>Anything not boxed is still visible. Look through every page before you send it.</p>
             <SaveButton key={current.url} file={current.file} url={current.url} />
           </div>
         )}
@@ -442,7 +450,9 @@ export function App() {
             index={i}
             width={loaded.pages[i].width}
             height={loaded.pages[i].height}
-            hasText={loaded.pages[i].items.length > 0}
+            hasText={loaded.pages[i].items.some((it) => !it.whole)}
+            images={loaded.pages[i].images ?? 0}
+            marks={loaded.pages[i].marks ?? 0}
             findings={findings.filter((f) => f.page === i)}
             isHidden={isHidden}
             mode={mode}

@@ -88,6 +88,10 @@ export function rangeRects(
   const rects: Rect[] = [];
   for (const [index, chars] of byItem) {
     const it = items[index];
+    if (it.whole) {
+      rects.push({ x: it.x - PAD, y: it.y - PAD, w: it.w + 2 * PAD, h: it.h + 2 * PAD });
+      continue;
+    }
     const spans = charSpans(it.str, it.rtl, measure(it.str, it.font));
     const intervals = chars.map((c) => spans[c]).sort((a, b) => a[0] - b[0]);
     let cur: [number, number] = [intervals[0][0], intervals[0][1]];
