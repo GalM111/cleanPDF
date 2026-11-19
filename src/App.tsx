@@ -58,9 +58,16 @@ interface Group {
   items: Finding[];
 }
 
-type Result =
+type Result = (
   | { ok: true; url: string; name: string; size: number }
-  | { ok: false; leaks: string[] };
+  | { ok: false; leaks: string[] }
+) & {
+  /** The state the file was built from; the result is stale once any of it changes. */
+  inputs: unknown[];
+};
+
+const pageList = (pages: number[]) =>
+  pages.length === 1 ? `Page ${pages[0]}` : `Pages ${pages.join(', ')}`;
 
 const splitValues = (raw: string) =>
   raw
@@ -106,6 +113,8 @@ export function App() {
   const mine = useMemo(() => groupBy(findings.filter((f) => f.source === 'details')), [findings]);
   const others = useMemo(() => groupBy(findings.filter((f) => f.source === 'found')), [findings]);
   const undecided = findings.filter((f) => f.source === 'found' && !(f.id in overrides)).length;
+  // 1-based numbers of pages with no text layer: nothing on them can be detected.
+  const textless = loaded ? loaded.pages.flatMap((p, i) => (p.items.length ? [] : [i + 1])) : [];
   const hiddenCount = findings.filter(isHidden).length + manual.length;
   const replacements = useMemo(
     () => buildReplacements(findings.filter(isHidden), mode),
@@ -114,13 +123,17 @@ export function App() {
     [findings, overrides, mode],
   );
 
-  // Any change makes a previously built file out of date.
-  useEffect(() => {
-    setResult((r) => {
-      if (r?.ok) URL.revokeObjectURL(r.url);
-      return null;
-    });
-  }, [findings, overrides, manual, mode]);
+  // A built file is only shown while the inputs it was built from are unchanged.
+  const inputs: unknown[] = [findings, overrides, manual, mode];
+  const current = result?.inputs.every((v, i) => v === inputs[i]) ? result : null;
+
+  // Release the previous file's memory when it is replaced or cleared.
+  useEffect(
+    () => () => {
+      if (result?.ok) URL.revokeObjectURL(result.url);
+    },
+    [result],
+  );
 
   async function load(bytes: Uint8Array, name: string) {
     setError('');
@@ -137,6 +150,7 @@ export function App() {
       await loaded?.doc.destroy();
       setOverrides({});
       setManual([]);
+      setResult(null);
       setIgnored([]);
       setLoaded({ doc, name, pages, proxies });
     } catch (e) {
@@ -167,6 +181,7 @@ export function App() {
     setIgnored([]);
     setOverrides({});
     setManual([]);
+    setResult(null);
     setError('');
   }
 
@@ -182,13 +197,14 @@ export function App() {
 
   async function runExport() {
     if (!loaded) return;
-    if (
-      undecided > 0 &&
-      !window.confirm(
-        `${undecided} suggested item(s) are still undecided and will stay visible. Export anyway?`,
-      )
-    )
-      return;
+    const warnings: string[] = [];
+    if (undecided > 0)
+      warnings.push(`${undecided} suggested item(s) are still undecided and will stay visible.`);
+    if (textless.length > 0)
+      warnings.push(
+        `${pageList(textless)} had no readable text, so nothing on ${textless.length > 1 ? 'them' : 'it'} was found automatically. Only boxes you drew by hand will be hidden there.`,
+      );
+    if (warnings.length > 0 && !window.confirm(`${warnings.join('\n\n')}\n\nExport anyway?`)) return;
 
     const boxes: DrawBox[][] = loaded.pages.map(() => []);
     for (const f of findings.filter(isHidden)) {
@@ -206,6 +222,8 @@ export function App() {
     for (const m of manual)
       boxes[m.page].push({ rect: m.rect, label: mode === 'template' ? '[REDACTED]' : '' });
 
+    const builtFrom = inputs;
+    setResult(null);
     try {
       const bytes = await exportPdf(loaded.doc, boxes, mode, (p, n) =>
         setBusy(`Building page ${p} of ${n}…`),
@@ -213,14 +231,16 @@ export function App() {
       setBusy('Checking the result…');
       const check = await verifyPdf(bytes, findings.filter(isHidden).map((f) => f.text));
       if (!check.ok) {
-        setResult({ ok: false, leaks: check.leaks });
+        setResult({ ok: false, leaks: check.leaks, inputs: builtFrom });
         return;
       }
       const url = URL.createObjectURL(new Blob([bytes as BlobPart], { type: 'application/pdf' }));
       const name = loaded.name.replace(/\.pdf$/i, '') + '-clean.pdf';
-      setResult({ ok: true, url, name, size: bytes.length });
-    } catch {
-      setError('Something went wrong while building the file.');
+      setResult({ ok: true, url, name, size: bytes.length, inputs: builtFrom });
+    } catch (e) {
+      console.error(e);
+      const detail = e instanceof Error && e.message ? ` (${e.message})` : '';
+      setError(`Something went wrong while building the file${detail}.`);
     } finally {
       setBusy('');
     }
@@ -370,22 +390,35 @@ export function App() {
             person you send it to that the details are made up.
           </p>
         )}
+        {textless.length > 0 && (
+          <p className="hint warn">
+            {pageList(textless)} {textless.length > 1 ? 'have' : 'has'} no readable text (probably a
+            scan), so nothing there was found automatically. Draw boxes by hand over anything
+            personal.
+          </p>
+        )}
         <button type="button" className="primary" disabled={!!busy} onClick={runExport}>
           {busy || `Create clean PDF (${hiddenCount} hidden)`}
         </button>
         {error && <p className="error">{error}</p>}
-        {result?.ok && (
+        {current?.ok && (
           <div className="result ok">
-            <p>Checked: none of the hidden values can be read from the new file.</p>
-            <a className="primary" href={result.url} download={result.name}>
-              Download {result.name} ({Math.round(result.size / 1024)} KB)
+            <p>
+              The new file is made of page images only: it has no text, metadata or attachments,
+              and the boxed areas are painted over for good.
+            </p>
+            <p>
+              Anything not boxed is still visible. Look through every page before you send it.
+            </p>
+            <a className="primary" href={current.url} download={current.name}>
+              Download {current.name} ({Math.round(current.size / 1024)} KB)
             </a>
           </div>
         )}
-        {result && !result.ok && (
+        {current && !current.ok && (
           <div className="result bad">
             <p>Export blocked. These values can still be read from the output:</p>
-            <p dir="auto">{result.leaks.join(', ')}</p>
+            <p dir="auto">{current.leaks.join(', ')}</p>
           </div>
         )}
       </aside>

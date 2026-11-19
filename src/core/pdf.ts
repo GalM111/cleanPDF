@@ -19,6 +19,9 @@ export function openPdf(data: Uint8Array): Promise<PDFDocumentProxy> {
     cMapUrl: `${assets}cmaps/`,
     cMapPacked: true,
     standardFontDataUrl: `${assets}standard_fonts/`,
+    // Keeps PDF.js from compiling font code with eval, which the
+    // Content-Security-Policy blocks.
+    isEvalSupported: false,
   }).promise;
 }
 
