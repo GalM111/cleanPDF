@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type PointerEvent } from 'react';
-import { startRender, type PDFPageProxy } from './core/pdf';
+import { capScale, startRender, type PDFPageProxy } from './core/pdf';
 import { widestIndex, type OutputMode } from './core/replace';
 import type { Finding, ManualBox, Rect } from './core/types';
 
@@ -29,7 +29,8 @@ export function PageView(props: Props) {
     let cancelled = false;
     // A fresh canvas per render: PDF.js refuses to draw twice into the same one.
     const canvas = document.createElement('canvas');
-    const task = startRender(page, canvas, Math.min(3, (window.devicePixelRatio || 1) * 1.5));
+    const wanted = Math.min(3, (window.devicePixelRatio || 1) * 1.5);
+    const task = startRender(page, canvas, capScale(width, height, wanted));
     task.promise.then(
       () => {
         if (!cancelled) holder.current?.replaceChildren(canvas);
@@ -40,7 +41,7 @@ export function PageView(props: Props) {
       cancelled = true;
       task.cancel();
     };
-  }, [page]);
+  }, [page, width, height]);
 
   const style = (r: Rect) => ({
     left: `${(r.x / width) * 100}%`,
