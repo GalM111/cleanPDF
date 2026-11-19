@@ -3,17 +3,19 @@ import type { Finding, Rect } from './types';
 /** How a hidden value is drawn in the output. */
 export type OutputMode = 'black' | 'white' | 'page' | 'template' | 'sample';
 
-export const MODES: { mode: OutputMode; label: string; hint: string }[] = [
-  { mode: 'black', label: 'Black', hint: 'Solid black box' },
-  { mode: 'white', label: 'White', hint: 'Solid white box' },
-  { mode: 'page', label: 'Page colour', hint: 'Blends into the page background' },
-  { mode: 'template', label: 'Labels', hint: 'A label such as [NAME]' },
-  { mode: 'sample', label: 'Sample data', hint: 'Made-up values such as John Doe' },
-];
+export const MODES: OutputMode[] = ['black', 'white', 'page', 'template', 'sample'];
 
 // Candidates in order of preference. Several lengths, so a sample can be
 // picked that fits the space of the value it replaces.
-const EN_NAMES = ['John Doe', 'Jane Roe', 'Alex Smith', 'Sam Brown', 'Chris Green', 'Jo Poe', 'Li Wu'];
+const EN_NAMES = [
+  'John Doe',
+  'Jane Roe',
+  'Alex Smith',
+  'Sam Brown',
+  'Chris Green',
+  'Jo Poe',
+  'Li Wu',
+];
 const HE_NAMES = ['ישראל ישראלי', 'משה כהן', 'נועה בר', 'רון טל', 'יעל גור', 'דן לב'];
 const EMAILS = ['john.doe@example.com', 'jane.roe@example.com', 'jd@example.com', 'a@b.co'];
 const EN_ADDRESSES = ['# Sample St, Sampletown', '# Main St, Anytown', '# Main St'];
@@ -77,8 +79,13 @@ export function sampleValue(kind: string, text: string, index: number): string {
 /**
  * The text drawn in place of each hidden finding, by finding id.
  * Labels and sample values are consistent: one value, one replacement.
+ * `kindName` gives the label wording in the interface language.
  */
-export function buildReplacements(hidden: Finding[], mode: OutputMode): Map<string, string> {
+export function buildReplacements(
+  hidden: Finding[],
+  mode: OutputMode,
+  kindName: (kind: string) => string = (kind) => kind,
+): Map<string, string> {
   const out = new Map<string, string>();
   if (mode !== 'template' && mode !== 'sample') return out;
 
@@ -97,7 +104,7 @@ export function buildReplacements(hidden: Finding[], mode: OutputMode): Map<stri
     out.set(
       f.id,
       mode === 'template'
-        ? `[${f.kind.toUpperCase()}${keys.length > 1 ? ` ${index + 1}` : ''}]`
+        ? `[${kindName(f.kind).toUpperCase()}${keys.length > 1 ? ` ${index + 1}` : ''}]`
         : sampleValue(f.kind, f.text, index),
     );
   }

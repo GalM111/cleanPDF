@@ -2,19 +2,20 @@ import { defineConfig, type Plugin } from 'vite';
 import react from '@vitejs/plugin-react';
 import { VitePWA } from 'vite-plugin-pwa';
 
-// The browser itself blocks any request to another site, so a document can
-// never be sent anywhere, even if a library were compromised. Only added to
-// the production build: the dev server needs inline scripts for hot reload.
+// The document never leaves the device, and this policy makes the browser
+// enforce it: the page may only load its own files and may not send requests
+// anywhere else. Only added to production builds, because the dev server
+// injects inline scripts for hot reload.
 const CSP = [
   "default-src 'self'",
   "script-src 'self'",
-  "worker-src 'self' blob:",
+  "worker-src 'self'",
   "connect-src 'self'",
   "img-src 'self' data: blob:",
   "font-src 'self' data:",
   "style-src 'self' 'unsafe-inline'",
   "object-src 'none'",
-  "base-uri 'self'",
+  "base-uri 'none'",
   "form-action 'none'",
 ].join('; ');
 
@@ -45,7 +46,8 @@ export default defineConfig({
       manifest: {
         name: 'cleanPDF',
         short_name: 'cleanPDF',
-        description: 'Hide personal details in a PDF before you share it. Works on your device only.',
+        description:
+          'Hide personal details in a PDF before you share it. Works on your device only.',
         start_url: './',
         scope: './',
         display: 'standalone',
@@ -60,6 +62,17 @@ export default defineConfig({
       workbox: {
         // pdf.js worker, character maps and fonts must be available offline.
         globPatterns: ['**/*.{js,mjs,css,html,svg,png,bcmap,pfb,ttf,pdf}'],
+        // The OCR engine and language data (about 15 MB) are not downloaded
+        // up front: they are fetched the first time a scan is read, then kept
+        // for offline use.
+        globIgnores: ['ocr/**'],
+        runtimeCaching: [
+          {
+            urlPattern: ({ url }) => url.pathname.includes('/ocr/'),
+            handler: 'StaleWhileRevalidate',
+            options: { cacheName: 'ocr-engine' },
+          },
+        ],
         maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,
         navigateFallback: 'index.html',
       },

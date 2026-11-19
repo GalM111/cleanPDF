@@ -173,7 +173,11 @@ export async function exportPdf(
     boxes.forEach((box, k) => paint(ctx, box, mode, colors[k], scale));
 
     const blob = await new Promise<Blob>((resolve, reject) =>
-      canvas.toBlob((b) => (b ? resolve(b) : reject(new Error('Could not encode page'))), 'image/jpeg', 0.9),
+      canvas.toBlob(
+        (b) => (b ? resolve(b) : reject(new Error('Could not encode page'))),
+        'image/jpeg',
+        0.9,
+      ),
     );
     const image = await out.embedJpg(await blob.arrayBuffer());
     const outPage = out.addPage([size.width, size.height]);
@@ -205,7 +209,8 @@ export async function verifyPdf(bytes: Uint8Array, hiddenValues: string[]): Prom
     const content = await (await doc.getPage(i)).getTextContent();
     for (const it of content.items) if ('str' in it) text += it.str + ' ';
   }
-  const info = (await doc.getMetadata().catch(() => null))?.info as Record<string, unknown> | undefined;
+  const info = (await doc.getMetadata().catch(() => null))?.info as
+    Record<string, unknown> | undefined;
   text += ` ${info?.Title ?? ''} ${info?.Author ?? ''} ${info?.Subject ?? ''} ${info?.Keywords ?? ''}`;
   await doc.destroy();
 

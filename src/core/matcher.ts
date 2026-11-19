@@ -1,6 +1,9 @@
 import { normValue } from './text';
 import { FIELD_KIND, type DetailField, type Details } from './types';
 
+/** Why a match should be looked at; the interface shows the wording. */
+export type Note = 'short' | 'fuzzy';
+
 /** A match in the normalised page text, before it is mapped to boxes. */
 export interface RawMatch {
   start: number;
@@ -8,7 +11,9 @@ export interface RawMatch {
   kind: string;
   key: string;
   source: 'details' | 'found';
-  note?: string;
+  note?: Note;
+  /** Too uncertain to hide without asking: shown, and hidden only if the user says so. */
+  review?: boolean;
 }
 
 export const WORD_START = '(?<![\\p{L}\\p{N}])';
@@ -34,7 +39,12 @@ export function textVariants(field: DetailField, value: string): string[] {
       out.push(...parts);
     }
   } else if (field === 'address') {
-    out.push(...v.split(',').map((p) => p.trim()).filter((p) => p.length >= 4));
+    out.push(
+      ...v
+        .split(',')
+        .map((p) => p.trim())
+        .filter((p) => p.length >= 4),
+    );
   }
   return [...new Set(out)];
 }
@@ -71,8 +81,46 @@ function numberRegex(field: DetailField, digits: string): RegExp {
   return new RegExp(`(?<!\\d)${plus}${digits.split('').join(DIGIT_SEP)}(?!\\d)`, 'g');
 }
 
-/** Layer 1: every occurrence of the user's own details in normalised text. */
-export function detailMatches(text: string, details: Details): RawMatch[] {
+// Letters that a scan often shows in place of a digit (text is lower-cased).
+const LOOKALIKE: Record<string, string> = {
+  0: '[0oq]',
+  1: '[1li|!]',
+  2: '[2z]',
+  5: '[5s]',
+  8: '[8b]',
+};
+// Shorter values are not matched loosely: one changed letter is another word.
+const FUZZY_MIN = 6;
+
+/** A number as a scan may show it, with look-alike letters in place of digits. */
+function fuzzyNumberRegex(field: DetailField, digits: string): RegExp {
+  const plus = field === 'phone' ? '\\+?' : '';
+  const body = digits
+    .split('')
+    .map((d) => LOOKALIKE[d] ?? d)
+    .join(DIGIT_SEP);
+  return new RegExp(`(?<![\\p{L}\\p{N}])${plus}${body}(?![\\p{L}\\p{N}])`, 'gu');
+}
+
+/** A text value with any one of its characters misread. */
+function fuzzyTextRegex(variant: string): RegExp | null {
+  const chars = [...variant];
+  if (chars.filter((c) => c !== ' ').length < FUZZY_MIN) return null;
+  const prefix = HEBREW_START.test(variant) ? HEBREW_PREFIX : '';
+  const piece = (c: string) => (c === ' ' ? '\\s+' : escapeRegex(c));
+  const alternatives: string[] = [];
+  chars.forEach((c, i) => {
+    if (c === ' ') return;
+    alternatives.push(chars.map((x, k) => (k === i ? '[\\p{L}\\p{N}]' : piece(x))).join(''));
+  });
+  return new RegExp(`${WORD_START}${prefix}(?:${alternatives.join('|')})${WORD_END}`, 'gu');
+}
+
+/**
+ * Layer 1: every occurrence of the user's own details in normalised text.
+ * With `fuzzy` (pages read from a scan) small reading errors are allowed.
+ */
+export function detailMatches(text: string, details: Details, fuzzy = false): RawMatch[] {
   const matches: RawMatch[] = [];
   for (const field of Object.keys(details) as DetailField[]) {
     for (const value of details[field]) {
@@ -82,7 +130,9 @@ export function detailMatches(text: string, details: Details): RawMatch[] {
       const variants = isNumber ? numberVariants(field, value) : textVariants(field, value);
       for (const variant of variants) {
         const re = isNumber ? numberRegex(field, variant) : textRegex(variant);
-        const note = !isNumber && variant.length <= 2 ? 'Short word, please check' : undefined;
+        // A very short name is often also an ordinary word (Hebrew גל is
+        // "wave"), so it is shown and left for the user to decide.
+        const review = !isNumber && variant.length <= 2;
         for (const m of text.matchAll(re)) {
           matches.push({
             start: m.index,
@@ -90,8 +140,21 @@ export function detailMatches(text: string, details: Details): RawMatch[] {
             kind,
             key,
             source: 'details',
-            note,
+            note: review ? 'short' : undefined,
+            review: review || undefined,
           });
+        }
+      }
+      if (!fuzzy) continue;
+      // After the exact matches, so an exact match of the same text wins.
+      for (const variant of variants) {
+        const re = isNumber ? fuzzyNumberRegex(field, variant) : fuzzyTextRegex(variant);
+        if (!re) continue;
+        for (const m of text.matchAll(re)) {
+          const start = m.index;
+          const end = m.index + m[0].length;
+          if (matches.some((x) => x.start === start && x.end === end)) continue;
+          matches.push({ start, end, kind, key, source: 'details', note: 'fuzzy' });
         }
       }
     }
@@ -110,7 +173,9 @@ export function resolveOverlaps(details: RawMatch[], found: RawMatch[]): RawMatc
     .filter(
       (f) =>
         f.kind === 'Email' &&
-        details.some((d) => d.start >= f.start && d.end <= f.end && d.end - d.start < f.end - f.start),
+        details.some(
+          (d) => d.start >= f.start && d.end <= f.end && d.end - d.start < f.end - f.start,
+        ),
     )
     .map((f): RawMatch => ({ ...f, source: 'details' }));
   details = [...details, ...promoted];

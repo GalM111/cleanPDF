@@ -29,8 +29,8 @@ Output is a new PDF that is safe to share, either with black boxes (anonymous) o
 2. **Enter "My details"** for this session (optional but recommended). Each field can hold several values, for example the name in Hebrew and in English, a maiden name, two phone numbers. Because nothing is saved, this is typed per session, so the form must be quick and the detectors must do most of the work.
 3. **Automatic scan.** The app reads the text (or OCRs it), matches "My details", and runs the "Also found" detectors, including the name model. The user can promote any suggestion to "hide everywhere" with one click instead of typing it.
 4. **Review screen.** Page preview with boxes, and a side list in two groups:
-   - *Your details*: hidden by default.
-   - *Also found*: shown as suggestions, not hidden until the user decides.
+   - _Your details_: hidden by default.
+   - _Also found_: shown as suggestions, not hidden until the user decides.
 5. **Act on findings** (see section 6), and draw manual boxes for anything missed.
 6. **Choose output mode**: anonymous or template.
 7. **Export.** The app builds the new PDF, verifies it, and offers the download.
@@ -41,15 +41,15 @@ Plain exact-match search is not enough. The same value appears in many written f
 
 ### 4.1 Generate variants of each value
 
-| Field | Variants generated |
-|---|---|
-| Name | Each part alone (first, last), both orders, Hebrew and English spellings as entered by the user, with and without Hebrew one-letter prefixes (ל, ב, ו, מ, ה, ש, כ), without niqqud, any letter case |
-| ID number | With and without leading zeros (Israeli IDs are often written with 8 digits), with separators (dash, space) |
-| Phone | 05X-XXXXXXX, 05XXXXXXXX, +972-5X..., with spaces or dashes |
-| Bank account | Account alone, branch-account, bank-branch-account, as part of an IL IBAN |
-| Address | Street, house number and city as separate tokens that must appear near each other; common abbreviations |
-| Email | Case-insensitive, whole address |
-| Free text | Anything else the user wants hidden (employer name, employee number, customer number) |
+| Field        | Variants generated                                                                                                                                                                                  |
+| ------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Name         | Each part alone (first, last), both orders, Hebrew and English spellings as entered by the user, with and without Hebrew one-letter prefixes (ל, ב, ו, מ, ה, ש, כ), without niqqud, any letter case |
+| ID number    | With and without leading zeros (Israeli IDs are often written with 8 digits), with separators (dash, space)                                                                                         |
+| Phone        | 05X-XXXXXXX, 05XXXXXXXX, +972-5X..., with spaces or dashes                                                                                                                                          |
+| Bank account | Account alone, branch-account, bank-branch-account, as part of an IL IBAN                                                                                                                           |
+| Address      | Street, house number and city as separate tokens that must appear near each other; common abbreviations                                                                                             |
+| Email        | Case-insensitive, whole address                                                                                                                                                                     |
+| Free text    | Anything else the user wants hidden (employer name, employee number, customer number)                                                                                                               |
 
 ### 4.2 Normalise the document text
 
@@ -71,14 +71,14 @@ Every match is tagged with the field it came from, so template mode knows which 
 
 Things the user did not enter but probably cares about, such as a spouse's name on a contract, a landlord's ID, or a customer number on a bill.
 
-| Detector | Finds | Needs a model? |
-|---|---|---|
-| Patterns + checksums | Israeli ID (check digit), IL IBAN, card numbers, phones, emails, dates of birth, licence plates | No |
-| Field labels | The value next to a known label ("Name:", "ID:", "Address:", "Account no." and Hebrew equivalents such as שם, ת.ז., כתובת, מספר חשבון) | No |
-| Barcodes and QR codes | Codes on bills often encode the account or customer number | No |
-| Document metadata | Author, title, creation tool, embedded files | No |
-| Name detection model | Names, addresses and organisations in free-running text, Hebrew and English | Yes |
-| Manual box | Signatures, stamps, photos, handwriting | No |
+| Detector              | Finds                                                                                                                                  | Needs a model? |
+| --------------------- | -------------------------------------------------------------------------------------------------------------------------------------- | -------------- |
+| Patterns + checksums  | Israeli ID (check digit), IL IBAN, card numbers, phones, emails, dates of birth, licence plates                                        | No             |
+| Field labels          | The value next to a known label ("Name:", "ID:", "Address:", "Account no." and Hebrew equivalents such as שם, ת.ז., כתובת, מספר חשבון) | No             |
+| Barcodes and QR codes | Codes on bills often encode the account or customer number                                                                             | No             |
+| Document metadata     | Author, title, creation tool, embedded files                                                                                           | No             |
+| Name detection model  | Names, addresses and organisations in free-running text, Hebrew and English                                                            | Yes            |
+| Manual box            | Signatures, stamps, photos, handwriting                                                                                                | No             |
 
 The name model is part of v1. Since details are not saved, the model is what makes the app fast to use: the user confirms suggestions instead of typing every value each time. Consequences:
 
@@ -117,19 +117,19 @@ Decision: the app saves nothing about the user.
 
 ## 9. Tech stack
 
-| Need | Choice |
-|---|---|
-| App | React + TypeScript + Vite, installable PWA, works offline |
-| PDF rendering and text extraction | PDF.js |
-| Building the output PDF | pdf-lib |
-| OCR | Tesseract.js with `eng` + `heb` data |
-| Barcode / QR detection | zxing-wasm (browser BarcodeDetector where available) |
-| Name detection | transformers.js with an ONNX model, WebGPU with WASM fallback (Hebrew model to be chosen and tested) |
-| Heavy work | Web Workers |
-| User data storage | None (in memory only) |
-| UI languages | English and Hebrew, with right-to-left layout |
-| Hosting | Static host (Cloudflare Pages or Netlify) |
-| Trust | Strict Content-Security-Policy blocking outgoing requests; open source |
+| Need                              | Choice                                                                                               |
+| --------------------------------- | ---------------------------------------------------------------------------------------------------- |
+| App                               | React + TypeScript + Vite, installable PWA, works offline                                            |
+| PDF rendering and text extraction | PDF.js                                                                                               |
+| Building the output PDF           | pdf-lib                                                                                              |
+| OCR                               | Tesseract.js with `eng` + `heb` data                                                                 |
+| Barcode / QR detection            | zxing-wasm (browser BarcodeDetector where available)                                                 |
+| Name detection                    | transformers.js with an ONNX model, WebGPU with WASM fallback (Hebrew model to be chosen and tested) |
+| Heavy work                        | Web Workers                                                                                          |
+| User data storage                 | None (in memory only)                                                                                |
+| UI languages                      | English and Hebrew, with right-to-left layout                                                        |
+| Hosting                           | Static host (Cloudflare Pages or Netlify)                                                            |
+| Trust                             | Strict Content-Security-Policy blocking outgoing requests; open source                               |
 
 ## 10. Market position
 
@@ -143,14 +143,14 @@ These three are the product's differentiators.
 
 ## 11. Milestones
 
-| # | Milestone | Done when |
-|---|---|---|
-| 0 | Hebrew feasibility prototype | Measured on sample text PDFs, scans and photos: usable Hebrew extraction, OCR accuracy, matcher hit rate, and a Hebrew name model running in the browser with its accuracy, size and speed |
-| 1 | Core on text PDFs | "My details" entry, variant matcher, review screen, flattened export, verification |
-| 2 | "Also found" | Name model, patterns, field labels, metadata, full action set, session ignore list |
-| 3 | Scans and images | OCR path with fuzzy matching and confidence marking |
-| 4 | Template mode and polish | Placeholders, Hebrew UI, offline PWA |
-| 5 | Extras | Barcode/QR detection, searchable output, DOCX input |
+| #   | Milestone                    | Done when                                                                                                                                                                                  |
+| --- | ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| 0   | Hebrew feasibility prototype | Measured on sample text PDFs, scans and photos: usable Hebrew extraction, OCR accuracy, matcher hit rate, and a Hebrew name model running in the browser with its accuracy, size and speed |
+| 1   | Core on text PDFs            | "My details" entry, variant matcher, review screen, flattened export, verification                                                                                                         |
+| 2   | "Also found"                 | Name model, patterns, field labels, metadata, full action set, session ignore list                                                                                                         |
+| 3   | Scans and images             | OCR path with fuzzy matching and confidence marking                                                                                                                                        |
+| 4   | Template mode and polish     | Placeholders, Hebrew UI, offline PWA                                                                                                                                                       |
+| 5   | Extras                       | Barcode/QR detection, searchable output, DOCX input                                                                                                                                        |
 
 v1 is milestones 1 to 4.
 

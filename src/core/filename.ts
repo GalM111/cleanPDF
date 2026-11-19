@@ -14,7 +14,7 @@ export function safeOutputName(original: string, hiddenValues: string[]): string
   if (!base) return `${FALLBACK}-clean.pdf`;
 
   // Treat _ - . as spaces so "Dana_Levi" matches "Dana Levi".
-  const spaced = base.replace(/[_.\-]+/g, ' ');
+  const spaced = base.replace(/[_.-]+/g, ' ');
   const haystack = normValue(spaced);
   const digits = haystack.replace(/\D/g, '');
   const holdsHidden = hiddenValues.some((value) => {

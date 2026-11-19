@@ -40,7 +40,7 @@ export function buildStream(items: TextItem[]): Stream {
         ref.push(null);
       } else {
         const gap = Math.max(it.x - (prev.x + prev.w), prev.x - (it.x + it.w));
-        if (gap > Math.min(prev.h, it.h) * 0.15) {
+        if (it.word || prev.word || gap > Math.min(prev.h, it.h) * 0.15) {
           text += ' ';
           ref.push(null);
         }
@@ -57,7 +57,8 @@ export function buildStream(items: TextItem[]): Stream {
 
 const FINALS: Record<string, string> = { ך: 'כ', ם: 'מ', ן: 'נ', ף: 'פ', ץ: 'צ' };
 // Hebrew vowel points and cantillation, bidi controls, zero-width characters.
-const DROP = /[֑-ׇֽֿׁׂׅׄ​-‏‪-‮⁦-⁩﻿]/;
+const DROP =
+  /[\u0591-\u05BD\u05BF\u05C1\u05C2\u05C4\u05C5\u05C7\u200B-\u200F\u202A-\u202E\u2066-\u2069\uFEFF]/;
 
 /** Normalises one character. Returns '' when the character should be dropped. */
 export function normChar(c: string): string {
