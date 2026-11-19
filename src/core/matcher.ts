@@ -34,7 +34,12 @@ export function textVariants(field: DetailField, value: string): string[] {
       out.push(...parts);
     }
   } else if (field === 'address') {
-    out.push(...v.split(',').map((p) => p.trim()).filter((p) => p.length >= 4));
+    out.push(
+      ...v
+        .split(',')
+        .map((p) => p.trim())
+        .filter((p) => p.length >= 4),
+    );
   }
   return [...new Set(out)];
 }
@@ -110,7 +115,9 @@ export function resolveOverlaps(details: RawMatch[], found: RawMatch[]): RawMatc
     .filter(
       (f) =>
         f.kind === 'Email' &&
-        details.some((d) => d.start >= f.start && d.end <= f.end && d.end - d.start < f.end - f.start),
+        details.some(
+          (d) => d.start >= f.start && d.end <= f.end && d.end - d.start < f.end - f.start,
+        ),
     )
     .map((f): RawMatch => ({ ...f, source: 'details' }));
   details = [...details, ...promoted];

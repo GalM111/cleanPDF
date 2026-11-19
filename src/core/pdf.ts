@@ -19,7 +19,8 @@ export function openPdf(data: Uint8Array): Promise<PDFDocumentProxy> {
     cMapUrl: `${assets}cmaps/`,
     cMapPacked: true,
     standardFontDataUrl: `${assets}standard_fonts/`,
-    // Never compile code from a document (the path past PDF.js exploits used).
+    // Never compile code from a document: the path past PDF.js exploits used,
+    // and the Content-Security-Policy blocks it anyway.
     isEvalSupported: false,
   }).promise;
 }
@@ -69,15 +70,10 @@ async function addAnnotationText(
   let marks = 0;
   for (const a of annotations) {
     if (HARMLESS.has(a.subtype) || !Array.isArray(a.rect)) continue;
-    let text = '';
-    if (a.subtype === 'Widget') {
-      if (a.checkBox || a.radioButton || a.pushButton) continue;
-      const value = a.fieldValue;
-      text = Array.isArray(value) ? value.join(' ') : typeof value === 'string' ? value : '';
-      if (!text.trim() && a.fieldType !== 'Sig') continue; // an empty field shows nothing
-    } else {
-      text = a.contentsObj?.str ?? '';
-    }
+    if (a.subtype === 'Widget' && (a.checkBox || a.radioButton || a.pushButton)) continue;
+    const text = annotationText(a);
+    // An empty form field shows nothing; an empty signature field still counts.
+    if (a.subtype === 'Widget' && !text.trim() && a.fieldType !== 'Sig') continue;
     if (!text.trim()) {
       marks++;
       continue;
@@ -98,26 +94,39 @@ async function addAnnotationText(
   return marks;
 }
 
+/** The text an annotation draws: a form field's value or a comment's text. */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function annotationText(a: any): string {
+  if (a.subtype !== 'Widget') return a.contentsObj?.str ?? '';
+  const value = a.fieldValue;
+  if (Array.isArray(value)) return value.join(' ');
+  return typeof value === 'string' ? value : '';
+}
+
 // Pictures smaller than this (in their own pixels) are icons and rules.
 const MIN_IMAGE_SIDE = 100;
 
+/** Pixel size of the picture an operator draws, or null if it draws none. */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function imageSize(fn: number, args: any): [number, number] | null {
+  const { OPS } = pdfjs;
+  if (fn === OPS.paintImageXObject) return [args[1], args[2]];
+  if (fn === OPS.paintInlineImageXObject || fn === OPS.paintImageMaskXObject)
+    return [args[0]?.width ?? 0, args[0]?.height ?? 0];
+  // Repeated or grouped pictures: assume they are big enough to matter.
+  if (fn === OPS.paintImageXObjectRepeat || fn === OPS.paintInlineImageXObjectGroup)
+    return [MIN_IMAGE_SIDE, MIN_IMAGE_SIDE];
+  return null;
+}
+
 /** Counts the pictures drawn on a page that are big enough to hold text. */
 async function countImages(page: PDFPageProxy): Promise<number> {
-  const { OPS } = pdfjs;
   const ops = await page.getOperatorList().catch(() => null);
   if (!ops) return 0;
   let count = 0;
   ops.fnArray.forEach((fn, i) => {
-    const args = ops.argsArray[i];
-    let w = 0;
-    let h = 0;
-    if (fn === OPS.paintImageXObject) [, w, h] = args;
-    else if (fn === OPS.paintInlineImageXObject || fn === OPS.paintImageMaskXObject)
-      ({ width: w, height: h } = args[0] ?? {});
-    else if (fn === OPS.paintImageXObjectRepeat || fn === OPS.paintInlineImageXObjectGroup)
-      w = h = MIN_IMAGE_SIDE;
-    else return;
-    if (w >= MIN_IMAGE_SIDE && h >= MIN_IMAGE_SIDE) count++;
+    const size = imageSize(fn, ops.argsArray[i]);
+    if (size && size[0] >= MIN_IMAGE_SIDE && size[1] >= MIN_IMAGE_SIDE) count++;
   });
   return count;
 }

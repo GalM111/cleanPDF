@@ -15,8 +15,7 @@
  */
 export function savesViaShareSheet(file: File): boolean {
   if (typeof navigator === 'undefined' || !navigator.canShare) return false;
-  const touchFirst =
-    typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches;
+  const touchFirst = typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches;
   if (!touchFirst) return false;
   try {
     return navigator.canShare({ files: [file] });

@@ -69,15 +69,40 @@ const PATTERNS: Pattern[] = [
 const LABELS: [string, string[]][] = [
   [
     'Name',
-    ['full name', 'first name', 'last name', 'surname', 'name', 'שם מלא', 'שם פרטי', 'שם משפחה', 'שם'],
+    [
+      'full name',
+      'first name',
+      'last name',
+      'surname',
+      'name',
+      'שם מלא',
+      'שם פרטי',
+      'שם משפחה',
+      'שם',
+    ],
   ],
   [
     'ID number',
-    ['id number', 'id no', 'id', 'passport', 'תעודת זהות', 'מספר זהות', "מס' זהות", 'ת.ז.', 'ת.ז', 'ת"ז', 'דרכון'],
+    [
+      'id number',
+      'id no',
+      'id',
+      'passport',
+      'תעודת זהות',
+      'מספר זהות',
+      "מס' זהות",
+      'ת.ז.',
+      'ת.ז',
+      'ת"ז',
+      'דרכון',
+    ],
   ],
   ['Address', ['address', 'כתובת', 'מען']],
   ['Phone', ['phone', 'mobile', 'tel', 'טלפון', 'נייד', 'טל']],
-  ['Bank account', ['account number', 'account no', 'account', 'מספר חשבון', "מס' חשבון", 'חשבון בנק', 'חשבון']],
+  [
+    'Bank account',
+    ['account number', 'account no', 'account', 'מספר חשבון', "מס' חשבון", 'חשבון בנק', 'חשבון'],
+  ],
   ['Email', ['email', 'e-mail', 'דוא"ל', 'מייל']],
 ];
 

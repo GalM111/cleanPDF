@@ -60,9 +60,13 @@ interface Group {
   items: Finding[];
 }
 
-type Result =
-  | { ok: true; url: string; file: File }
-  | { ok: false; leaks: string[] };
+type Result = ({ ok: true; url: string; file: File } | { ok: false; leaks: string[] }) & {
+  /** The state the file was built from; the result is stale once any of it changes. */
+  inputs: unknown[];
+};
+
+const pageList = (pages: number[]) =>
+  pages.length === 1 ? `Page ${pages[0]}` : `Pages ${pages.join(', ')}`;
 
 const splitValues = (raw: string) =>
   raw
@@ -108,6 +112,10 @@ export function App() {
   const mine = useMemo(() => groupBy(findings.filter((f) => f.source === 'details')), [findings]);
   const others = useMemo(() => groupBy(findings.filter((f) => f.source === 'found')), [findings]);
   const undecided = findings.filter((f) => f.source === 'found' && !(f.id in overrides)).length;
+  // 1-based numbers of pages with no text layer: nothing on them can be detected.
+  const textless = loaded
+    ? loaded.pages.flatMap((p, i) => (p.items.some((it) => !it.whole) ? [] : [i + 1]))
+    : [];
   const hiddenCount = findings.filter(isHidden).length + manual.length;
   const replacements = useMemo(
     () => buildReplacements(findings.filter(isHidden), mode),
@@ -116,13 +124,17 @@ export function App() {
     [findings, overrides, mode],
   );
 
-  // Any change makes a previously built file out of date.
-  useEffect(() => {
-    setResult((r) => {
-      if (r?.ok) URL.revokeObjectURL(r.url);
-      return null;
-    });
-  }, [findings, overrides, manual, mode]);
+  // A built file is only shown while the inputs it was built from are unchanged.
+  const inputs: unknown[] = [findings, overrides, manual, mode];
+  const current = result?.inputs.every((v, i) => v === inputs[i]) ? result : null;
+
+  // Release the previous file's memory when it is replaced or cleared.
+  useEffect(
+    () => () => {
+      if (result?.ok) URL.revokeObjectURL(result.url);
+    },
+    [result],
+  );
 
   async function load(bytes: Uint8Array, name: string) {
     setError('');
@@ -139,6 +151,7 @@ export function App() {
       await loaded?.doc.destroy();
       setOverrides({});
       setManual([]);
+      setResult(null);
       setIgnored([]);
       setLoaded({ doc, name, pages, proxies });
     } catch (e) {
@@ -169,6 +182,7 @@ export function App() {
     setIgnored([]);
     setOverrides({});
     setManual([]);
+    setResult(null);
     setError('');
   }
 
@@ -184,12 +198,14 @@ export function App() {
 
   async function runExport() {
     if (!loaded) return;
-    if (
-      undecided > 0 &&
-      !window.confirm(
-        `${undecided} suggested item(s) are still undecided and will stay visible. Export anyway?`,
-      )
-    )
+    const warnings: string[] = [];
+    if (undecided > 0)
+      warnings.push(`${undecided} suggested item(s) are still undecided and will stay visible.`);
+    if (textless.length > 0)
+      warnings.push(
+        `${pageList(textless)} had no readable text, so nothing on ${textless.length > 1 ? 'them' : 'it'} was found automatically. Only boxes you drew by hand will be hidden there.`,
+      );
+    if (warnings.length > 0 && !window.confirm(`${warnings.join('\n\n')}\n\nExport anyway?`))
       return;
 
     const boxes: DrawBox[][] = loaded.pages.map(() => []);
@@ -208,14 +224,19 @@ export function App() {
     for (const m of manual)
       boxes[m.page].push({ rect: m.rect, label: mode === 'template' ? '[REDACTED]' : '' });
 
+    const builtFrom = inputs;
+    setResult(null);
     try {
       const bytes = await exportPdf(loaded.doc, boxes, mode, (p, n) =>
         setBusy(`Building page ${p} of ${n}…`),
       );
       setBusy('Checking the result…');
-      const check = await verifyPdf(bytes, findings.filter(isHidden).map((f) => f.text));
+      const check = await verifyPdf(
+        bytes,
+        findings.filter(isHidden).map((f) => f.text),
+      );
       if (!check.ok) {
-        setResult({ ok: false, leaks: check.leaks });
+        setResult({ ok: false, leaks: check.leaks, inputs: builtFrom });
         return;
       }
       const name = safeOutputName(loaded.name, [
@@ -223,9 +244,11 @@ export function App() {
         ...Object.values(details).flat(),
       ]);
       const file = new File([bytes as BlobPart], name, { type: 'application/pdf' });
-      setResult({ ok: true, url: URL.createObjectURL(file), file });
-    } catch {
-      setError('Something went wrong while building the file.');
+      setResult({ ok: true, url: URL.createObjectURL(file), file, inputs: builtFrom });
+    } catch (e) {
+      console.error(e);
+      const detail = e instanceof Error && e.message ? ` (${e.message})` : '';
+      setError(`Something went wrong while building the file${detail}.`);
     } finally {
       setBusy('');
     }
@@ -242,8 +265,8 @@ export function App() {
       <main className="landing">
         <h1>cleanPDF</h1>
         <p className="lead">
-          Hide your personal details in a document before you send it. The file is processed on
-          this device only and nothing is saved.
+          Hide your personal details in a document before you send it. The file is processed on this
+          device only and nothing is saved.
         </p>
         <label
           className={`drop ${dragging ? 'over' : ''}`}
@@ -254,7 +277,11 @@ export function App() {
           onDragLeave={() => setDragging(false)}
           onDrop={onDrop}
         >
-          <input type="file" accept="application/pdf" onChange={(e) => loadFile(e.target.files?.[0])} />
+          <input
+            type="file"
+            accept="application/pdf"
+            onChange={(e) => loadFile(e.target.files?.[0])}
+          />
           <strong>{busy || 'Drop a PDF here or click to choose'}</strong>
         </label>
         <button type="button" className="link" onClick={loadSample}>
@@ -288,7 +315,9 @@ export function App() {
               dir="auto"
               title="Show on page"
               onClick={() =>
-                document.getElementById(`page-${g.items[0].page}`)?.scrollIntoView({ behavior: 'smooth' })
+                document
+                  .getElementById(`page-${g.items[0].page}`)
+                  ?.scrollIntoView({ behavior: 'smooth' })
               }
             >
               {g.text}
@@ -297,7 +326,11 @@ export function App() {
             {g.note && <span className="note">{g.note}</span>}
             {suggestion && (
               <span className="actions">
-                <button type="button" onClick={() => adopt(g)} title="Add to My details and hide every form of it">
+                <button
+                  type="button"
+                  onClick={() => adopt(g)}
+                  title="Add to My details and hide every form of it"
+                >
                   Hide everywhere
                 </button>
                 <button type="button" onClick={() => setIgnored((i) => [...i, g.key])}>
@@ -342,9 +375,7 @@ export function App() {
         <h2>2. Review</h2>
         <h3>Your details in this document</h3>
         {mine.length ? groupList(mine, false) : <p className="hint">Nothing matched yet.</p>}
-        <h3>
-          Also found {undecided > 0 && <span className="badge">{undecided} undecided</span>}
-        </h3>
+        <h3>Also found {undecided > 0 && <span className="badge">{undecided} undecided</span>}</h3>
         {others.length ? (
           groupList(others, true)
         ) : (
@@ -361,7 +392,12 @@ export function App() {
         <div className="modes">
           {MODES.map((m) => (
             <label key={m.mode} className={mode === m.mode ? 'on' : ''} title={m.hint}>
-              <input type="radio" name="mode" checked={mode === m.mode} onChange={() => setMode(m.mode)} />
+              <input
+                type="radio"
+                name="mode"
+                checked={mode === m.mode}
+                onChange={() => setMode(m.mode)}
+              />
               <span className={`swatch fill-${m.mode}`}>
                 {m.mode === 'template' ? '[NAME]' : m.mode === 'sample' ? 'John Doe' : ''}
               </span>
@@ -371,8 +407,15 @@ export function App() {
         </div>
         {mode === 'sample' && (
           <p className="hint">
-            Sample data makes the file look like a real document about someone else. Tell the
-            person you send it to that the details are made up.
+            Sample data makes the file look like a real document about someone else. Tell the person
+            you send it to that the details are made up.
+          </p>
+        )}
+        {textless.length > 0 && (
+          <p className="hint warn">
+            {pageList(textless)} {textless.length > 1 ? 'have' : 'has'} no readable text (probably a
+            scan), so nothing there was found automatically. Draw boxes by hand over anything
+            personal.
           </p>
         )}
         <p className="hint">
@@ -383,20 +426,20 @@ export function App() {
           {busy || `Create clean PDF (${hiddenCount} hidden)`}
         </button>
         {error && <p className="error">{error}</p>}
-        {result?.ok && (
+        {current?.ok && (
           <div className="result ok">
             <p>
-              The new file holds only pictures of the pages: no text, form data or document details
-              were copied from the original. Open it and check that every box covers what it
-              should before you share it.
+              The new file is made of page images only: it has no text, form data, metadata or
+              attachments, and the boxed areas are painted over for good.
             </p>
-            <SaveButton key={result.url} file={result.file} url={result.url} />
+            <p>Anything not boxed is still visible. Look through every page before you send it.</p>
+            <SaveButton key={current.url} file={current.file} url={current.url} />
           </div>
         )}
-        {result && !result.ok && (
+        {current && !current.ok && (
           <div className="result bad">
             <p>Export blocked. These values can still be read from the output:</p>
-            <p dir="auto">{result.leaks.join(', ')}</p>
+            <p dir="auto">{current.leaks.join(', ')}</p>
           </div>
         )}
       </aside>

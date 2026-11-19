@@ -1,8 +1,8 @@
 // Generates public/sample.pdf: a made-up rental agreement in English and
 // Hebrew, used by the "Try it with a sample document" button and for testing.
 // All people and numbers in it are invented.
-// Needs a font with Hebrew letters; uses Arial on Windows or DejaVu Sans on
-// Linux (override with the SAMPLE_FONT environment variable).
+// Needs a TrueType font with Hebrew letters. Looks for one on Windows, macOS and
+// Linux; set the SAMPLE_FONT environment variable to use a different file.
 // The numbers are well-known dummies or obviously fake, so they are not
 // meant to match a real person.
 import fontkit from '@pdf-lib/fontkit';
@@ -12,9 +12,24 @@ import { fileURLToPath } from 'node:url';
 import { PDFDocument, rgb } from 'pdf-lib';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
-const fontPath =
-  process.env.SAMPLE_FONT ??
-  ['C:/Windows/Fonts/arial.ttf', '/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf'].find(existsSync);
+
+const FONT_CANDIDATES = [
+  'C:/Windows/Fonts/arial.ttf',
+  '/System/Library/Fonts/Supplemental/Arial.ttf',
+  '/Library/Fonts/Arial.ttf',
+  '/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf',
+  '/usr/share/fonts/dejavu/DejaVuSans.ttf',
+  '/usr/share/fonts/TTF/DejaVuSans.ttf',
+  '/usr/share/fonts/truetype/freefont/FreeSans.ttf',
+];
+const fontPath = process.env.SAMPLE_FONT ?? FONT_CANDIDATES.find((p) => existsSync(p));
+if (!fontPath) {
+  console.error(
+    'No font with Hebrew letters found. Set SAMPLE_FONT to the path of a .ttf file, for example:\n' +
+      '  SAMPLE_FONT=/path/to/NotoSansHebrew-Regular.ttf npm run sample',
+  );
+  process.exit(1);
+}
 
 // A Hebrew line is drawn run by run from the right edge: Hebrew runs (the font
 // engine lays those out right to left by itself) and number or Latin runs,
@@ -47,7 +62,7 @@ doc.setAuthor('Dana Levi');
 const W = 595;
 const H = 842;
 const M = 56;
-let page = doc.addPage([W, H]);
+const page = doc.addPage([W, H]);
 let y = H - 70;
 
 const en = (text, size = 11) => {
