@@ -11,6 +11,7 @@ import {
 import { scanPage } from './core/scan';
 import type { DetailField, Details, Finding, ManualBox, PageText, Rect } from './core/types';
 import { PageView } from './PageView';
+import { SaveButton } from './SaveButton';
 
 const FIELDS: { field: DetailField; label: string; hint: string }[] = [
   { field: 'name', label: 'Names', hint: 'Dana Levi; דנה לוי' },
@@ -59,7 +60,7 @@ interface Group {
 }
 
 type Result =
-  | { ok: true; url: string; name: string; size: number }
+  | { ok: true; url: string; file: File }
   | { ok: false; leaks: string[] };
 
 const splitValues = (raw: string) =>
@@ -216,9 +217,9 @@ export function App() {
         setResult({ ok: false, leaks: check.leaks });
         return;
       }
-      const url = URL.createObjectURL(new Blob([bytes as BlobPart], { type: 'application/pdf' }));
       const name = loaded.name.replace(/\.pdf$/i, '') + '-clean.pdf';
-      setResult({ ok: true, url, name, size: bytes.length });
+      const file = new File([bytes as BlobPart], name, { type: 'application/pdf' });
+      setResult({ ok: true, url: URL.createObjectURL(file), file });
     } catch {
       setError('Something went wrong while building the file.');
     } finally {
@@ -377,9 +378,7 @@ export function App() {
         {result?.ok && (
           <div className="result ok">
             <p>Checked: none of the hidden values can be read from the new file.</p>
-            <a className="primary" href={result.url} download={result.name}>
-              Download {result.name} ({Math.round(result.size / 1024)} KB)
-            </a>
+            <SaveButton key={result.url} file={result.file} url={result.url} />
           </div>
         )}
         {result && !result.ok && (

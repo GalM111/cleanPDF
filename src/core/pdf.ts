@@ -46,6 +46,17 @@ export async function extractPage(page: PDFPageProxy): Promise<PageText> {
   return { items, width: viewport.width, height: viewport.height };
 }
 
+// Safari (iPhone, iPad, Mac) leaves a canvas blank above about 16.7 million
+// pixels. Normal pages (A4, Letter, up to about A2 at the export scale) stay
+// well below this; only very large pages are drawn at a lower scale.
+const MAX_CANVAS_PIXELS = 16_000_000;
+
+/** The wanted scale, lowered if needed so the page fits in one canvas. */
+export function capScale(width: number, height: number, wanted: number): number {
+  const fit = Math.sqrt(MAX_CANVAS_PIXELS / (width * height));
+  return Math.min(wanted, fit);
+}
+
 /** Starts drawing a page into a canvas. The returned task can be cancelled. */
 export function startRender(page: PDFPageProxy, canvas: HTMLCanvasElement, scale: number) {
   const viewport = page.getViewport({ scale });
