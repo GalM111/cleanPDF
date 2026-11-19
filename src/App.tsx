@@ -8,6 +8,7 @@ import {
   type PDFDocumentProxy,
   type PDFPageProxy,
 } from './core/pdf';
+import { safeOutputName } from './core/filename';
 import { scanPage } from './core/scan';
 import type { DetailField, Details, Finding, ManualBox, PageText, Rect } from './core/types';
 import { PageView } from './PageView';
@@ -217,7 +218,10 @@ export function App() {
         setResult({ ok: false, leaks: check.leaks });
         return;
       }
-      const name = loaded.name.replace(/\.pdf$/i, '') + '-clean.pdf';
+      const name = safeOutputName(loaded.name, [
+        ...findings.filter(isHidden).map((f) => f.text),
+        ...Object.values(details).flat(),
+      ]);
       const file = new File([bytes as BlobPart], name, { type: 'application/pdf' });
       setResult({ ok: true, url: URL.createObjectURL(file), file });
     } catch {
@@ -371,13 +375,21 @@ export function App() {
             person you send it to that the details are made up.
           </p>
         )}
+        <p className="hint">
+          Barcodes and QR codes are not hidden automatically. Draw a box over them if they may hold
+          an account or customer number.
+        </p>
         <button type="button" className="primary" disabled={!!busy} onClick={runExport}>
           {busy || `Create clean PDF (${hiddenCount} hidden)`}
         </button>
         {error && <p className="error">{error}</p>}
         {result?.ok && (
           <div className="result ok">
-            <p>Checked: none of the hidden values can be read from the new file.</p>
+            <p>
+              The new file holds only pictures of the pages: no text, form data or document details
+              were copied from the original. Open it and check that every box covers what it
+              should before you share it.
+            </p>
             <SaveButton key={result.url} file={result.file} url={result.url} />
           </div>
         )}
@@ -397,7 +409,9 @@ export function App() {
             index={i}
             width={loaded.pages[i].width}
             height={loaded.pages[i].height}
-            hasText={loaded.pages[i].items.length > 0}
+            hasText={loaded.pages[i].items.some((it) => !it.whole)}
+            images={loaded.pages[i].images ?? 0}
+            marks={loaded.pages[i].marks ?? 0}
             findings={findings.filter((f) => f.page === i)}
             isHidden={isHidden}
             mode={mode}

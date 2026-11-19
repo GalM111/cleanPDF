@@ -17,12 +17,21 @@ export interface TextItem {
   /** True when the base direction of the piece is right-to-left. */
   rtl: boolean;
   font: string;
+  /**
+   * Text of a form field or comment drawn on the page. Where the text sits
+   * inside the field is unknown, so a match covers the whole field.
+   */
+  whole?: boolean;
 }
 
 export interface PageText {
   items: TextItem[];
   width: number;
   height: number;
+  /** Pictures on the page (text inside them cannot be read). */
+  images?: number;
+  /** Form fields, signatures, stamps and drawings on the page. */
+  marks?: number;
 }
 
 export type DetailField = 'name' | 'id' | 'phone' | 'account' | 'email' | 'address' | 'other';

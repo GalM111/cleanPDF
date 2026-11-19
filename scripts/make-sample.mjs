@@ -1,16 +1,20 @@
 // Generates public/sample.pdf: a made-up rental agreement in English and
 // Hebrew, used by the "Try it with a sample document" button and for testing.
 // All people and numbers in it are invented.
-// Needs a font with Hebrew letters; uses Arial from Windows by default
-// (override with the SAMPLE_FONT environment variable).
+// Needs a font with Hebrew letters; uses Arial on Windows or DejaVu Sans on
+// Linux (override with the SAMPLE_FONT environment variable).
+// The numbers are well-known dummies or obviously fake, so they are not
+// meant to match a real person.
 import fontkit from '@pdf-lib/fontkit';
-import { readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { PDFDocument, rgb } from 'pdf-lib';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
-const fontPath = process.env.SAMPLE_FONT ?? 'C:/Windows/Fonts/arial.ttf';
+const fontPath =
+  process.env.SAMPLE_FONT ??
+  ['C:/Windows/Fonts/arial.ttf', '/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf'].find(existsSync);
 
 // A Hebrew line is drawn run by run from the right edge: Hebrew runs (the font
 // engine lays those out right to left by itself) and number or Latin runs,
@@ -73,12 +77,12 @@ en('Address: 12 Herzl St, Tel Aviv');
 gap();
 en('Landlord');
 en('Name: Yossi Cohen');
-en('ID: 039337423');
-en('Phone: 03-5551234');
+en('ID: 111111118');
+en('Phone: 03-0000000');
 gap();
 en('1. The landlord rents to Dana Levi the apartment at 12 Herzl St, Tel Aviv.');
-en('2. Rent of 5,200 NIS is paid monthly to bank account 12-345-678901.');
-en(`3. Transfers may also use IBAN ${iban('012', '345', '678901')}.`);
+en('2. Rent of 5,200 NIS is paid monthly to bank account 12-999-000001.');
+en(`3. Transfers may also use IBAN ${iban('012', '999', '000001')}.`);
 en('4. Levi Dana confirms receiving two keys. Contact: +972 52-123-4567.');
 gap(24);
 
@@ -92,10 +96,10 @@ he('טלפון: 052-1234567');
 he('כתובת: רחוב הרצל 12, תל אביב');
 gap();
 he('שם המשכיר: יוסי כהן');
-he('ת.ז: 039337423');
+he('ת.ז: 111111118');
 gap();
 he('1. המשכיר משכיר לדנה לוי את הדירה ברחוב הרצל 12, תל אביב.');
-he('2. דמי השכירות ישולמו לחשבון בנק 12-345-678901.');
+he('2. דמי השכירות ישולמו לחשבון בנק 12-999-000001.');
 he('3. ההודעות יישלחו לדנה בדוא"ל dana.levi@example.com או בטלפון 0521234567.');
 
 writeFileSync(join(root, 'public', 'sample.pdf'), await doc.save());

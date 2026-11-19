@@ -98,8 +98,11 @@ function paint(
 ) {
   const { x, y, w, h } = toPx(box.rect, s);
   if (mode === 'black' || mode === 'white' || mode === 'page') {
+    // A little extra width: character widths are estimated, and an error
+    // must never leave the edge of a hidden letter showing.
+    const extra = Math.max(1, Math.round(h * 0.08));
     ctx.fillStyle = mode === 'black' ? '#000' : mode === 'white' ? '#fff' : colors.bg;
-    ctx.fillRect(x, y, w, h);
+    ctx.fillRect(x - extra, y, w + 2 * extra, h);
     return;
   }
   if (mode === 'sample') {
@@ -154,7 +157,8 @@ export async function exportPdf(
   mode: OutputMode,
   onProgress: (page: number, total: number) => void,
 ): Promise<Uint8Array> {
-  const out = await PDFDocument.create();
+  // No creation or modification date: it would tell when the file was cleaned.
+  const out = await PDFDocument.create({ updateMetadata: false });
   for (let i = 0; i < doc.numPages; i++) {
     onProgress(i + 1, doc.numPages);
     const page = await doc.getPage(i + 1);
