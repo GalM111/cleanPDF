@@ -9,6 +9,10 @@ interface Props {
   width: number;
   height: number;
   hasText: boolean;
+  /** Pictures on the page: text inside them is not found automatically. */
+  images: number;
+  /** Form fields, signatures, stamps and drawings on the page. */
+  marks: number;
   findings: Finding[];
   isHidden: (f: Finding) => boolean;
   mode: OutputMode;
@@ -84,8 +88,22 @@ export function PageView(props: Props) {
     <section className="page" id={`page-${index}`}>
       <div className="page-title">
         Page {index + 1}
-        {!props.hasText && (
+        {!props.hasText ? (
           <span className="warn"> — no readable text here (probably a scan). Draw boxes by hand.</span>
+        ) : (
+          props.images > 0 && (
+            <span className="warn">
+              {' '}
+              — has pictures. Text inside pictures (scans, ID copies, signatures) is not found
+              automatically: draw boxes over it.
+            </span>
+          )
+        )}
+        {props.marks > 0 && (
+          <span className="warn">
+            {' '}
+            — has form fields, signatures or stamps. Check that each one is covered.
+          </span>
         )}
       </div>
       <div className="sheet" style={{ aspectRatio: `${width} / ${height}` }}>

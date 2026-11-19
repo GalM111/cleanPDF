@@ -1,11 +1,40 @@
-import { defineConfig } from 'vite';
+import { defineConfig, type Plugin } from 'vite';
 import react from '@vitejs/plugin-react';
 import { VitePWA } from 'vite-plugin-pwa';
+
+// The browser itself blocks any request to another site, so a document can
+// never be sent anywhere, even if a library were compromised. Only added to
+// the production build: the dev server needs inline scripts for hot reload.
+const CSP = [
+  "default-src 'self'",
+  "script-src 'self'",
+  "worker-src 'self' blob:",
+  "connect-src 'self'",
+  "img-src 'self' data: blob:",
+  "font-src 'self' data:",
+  "style-src 'self' 'unsafe-inline'",
+  "object-src 'none'",
+  "base-uri 'self'",
+  "form-action 'none'",
+].join('; ');
+
+const contentSecurityPolicy = (): Plugin => ({
+  name: 'content-security-policy',
+  apply: 'build',
+  transformIndexHtml: () => [
+    {
+      tag: 'meta',
+      attrs: { 'http-equiv': 'Content-Security-Policy', content: CSP },
+      injectTo: 'head-prepend',
+    },
+  ],
+});
 
 export default defineConfig({
   base: './',
   plugins: [
     react(),
+    contentSecurityPolicy(),
     // Makes the built site installable ("Add to Home Screen" on iPhone, "Install
     // app" on desktop) and caches every file so it also works offline. Only the
     // app's own files are cached; the user's documents are never stored.
