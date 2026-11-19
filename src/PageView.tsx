@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState, type PointerEvent } from 'react';
 import { capScale, startRender, type PDFPageProxy } from './core/pdf';
 import { widestIndex, type OutputMode } from './core/replace';
+import type { ScanState } from './App';
+import type { Strings } from './i18n';
 import type { Finding, ManualBox, Rect } from './core/types';
 
 interface Props {
@@ -13,9 +15,15 @@ interface Props {
   images: number;
   /** Form fields, signatures, stamps and drawings on the page. */
   marks: number;
+  /** The text of this page was read from its picture. */
+  ocr: boolean;
+  /** Set while the page is being read as a scan. */
+  scan: ScanState | undefined;
+  onReadAsScan: () => void;
   findings: Finding[];
   isHidden: (f: Finding) => boolean;
   mode: OutputMode;
+  t: Strings;
   replacement: (f: Finding) => string;
   manual: ManualBox[];
   onToggle: (f: Finding) => void;
@@ -24,7 +32,7 @@ interface Props {
 }
 
 export function PageView(props: Props) {
-  const { page, index, width, height, findings, manual } = props;
+  const { page, index, width, height, findings, manual, t } = props;
   const holder = useRef<HTMLDivElement>(null);
   const [draft, setDraft] = useState<Rect | null>(null);
   const origin = useRef<{ x: number; y: number } | null>(null);
@@ -87,29 +95,54 @@ export function PageView(props: Props) {
   return (
     <section className="page" id={`page-${index}`}>
       <div className="page-title">
-        Page {index + 1}
-        {!props.hasText ? (
+        {t.page(index + 1)}
+        {props.scan === undefined ? (
+          <>
+            {props.ocr && (
+              <span className="warn">
+                {' — '}
+                {props.hasText ? t.scanRead : t.scanEmpty}
+              </span>
+            )}
+            {!props.ocr && (
+              <button
+                type="button"
+                className="link reread"
+                title={t.rereadTitle}
+                onClick={props.onReadAsScan}
+              >
+                {t.reread}
+              </button>
+            )}
+          </>
+        ) : props.scan === 'failed' ? (
           <span className="warn">
-            {' '}
-            — no readable text here (probably a scan). Draw boxes by hand.
+            {` — ${t.scanFailed} `}
+            <button type="button" className="link" onClick={props.onReadAsScan}>
+              {t.tryAgain}
+            </button>
           </span>
         ) : (
-          props.images > 0 && (
-            <span className="warn">
-              {' '}
-              — has pictures. Text inside pictures (scans, ID copies, signatures) is not found
-              automatically: draw boxes over it.
-            </span>
-          )
+          <span className="reading">
+            {' — '}
+            {props.scan === 'wait' ? t.scanWaiting : t.scanReading(Math.round(props.scan * 100))}
+          </span>
+        )}
+        {/* On a page read as a scan the whole page is a picture: no extra warning. */}
+        {!props.ocr && props.hasText && props.images > 0 && (
+          <span className="warn">
+            {' — '}
+            {t.imagesWarn}
+          </span>
         )}
         {props.marks > 0 && (
           <span className="warn">
-            {' '}
-            — has form fields, signatures or stamps. Check that each one is covered.
+            {' — '}
+            {t.marksWarn}
           </span>
         )}
       </div>
-      <div className="sheet" style={{ aspectRatio: `${width} / ${height}` }}>
+      <div className="sheet" dir="ltr" style={{ aspectRatio: `${width} / ${height}` }}>
         <div className="canvas-holder" ref={holder} />
         <div
           className="overlay"
@@ -128,7 +161,7 @@ export function PageView(props: Props) {
                 type="button"
                 className={`box ${f.source} ${hidden ? `hidden fill-${props.mode}` : 'kept'}`}
                 style={style(r)}
-                title={`${f.kind}: ${f.text} — click to ${hidden ? 'keep' : 'hide'}`}
+                title={t.boxTitle(t.kinds[f.kind] ?? f.kind, f.text, hidden)}
                 onClick={() => props.onToggle(f)}
               >
                 {text && (props.mode === 'template' || i === main) && (
@@ -143,10 +176,10 @@ export function PageView(props: Props) {
               type="button"
               className={`box manual hidden fill-${props.mode}`}
               style={style(m.rect)}
-              title="Manual box — click to remove"
+              title={t.manualTitle}
               onClick={() => props.onRemoveManual(m.id)}
             >
-              {props.mode === 'template' && <span>[REDACTED]</span>}
+              {props.mode === 'template' && <span>[{t.redacted}]</span>}
             </button>
           ))}
           {draft && <div className="box draft" style={style(draft)} />}

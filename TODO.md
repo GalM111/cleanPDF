@@ -23,7 +23,8 @@ Ordered by priority. See [docs/PLAN.md](docs/PLAN.md) for the full product plan.
 - [x] Checks on every push: lint, format, unit tests, build (`.github/workflows/ci.yml`).
 - [x] Privacy check on the build: CSP present, no unknown outside addresses, size budget (`scripts/check-build.mjs`).
 - [ ] End-to-end job with Playwright against the production build (see P2).
-- [ ] Dependabot for npm and GitHub Actions; `npm audit --omit=dev` in CI.
+- [x] Dependabot for npm and GitHub Actions (`.github/dependabot.yml`).
+- [ ] `npm audit --omit=dev` in CI.
 - [x] Deploy `dist/` from `main` to GitHub Pages (`.github/workflows/pages.yml`), gated by the same checks.
 - [ ] On GitHub: protect `main` and require the CI checks to pass.
 
@@ -35,15 +36,18 @@ Ordered by priority. See [docs/PLAN.md](docs/PLAN.md) for the full product plan.
 
 ## P3: Plan milestones not done yet
 
-- [ ] OCR with Tesseract.js (`eng` + `heb`) for scans and photos, with fuzzy matching and confidence marks (milestone 3).
-- [ ] JPG/PNG input: turn the image into a one-page document before scanning.
+- [x] OCR with Tesseract.js (`eng` + `heb`) for scans and photos, with fuzzy matching and confidence marks (milestone 3). The engine is cached on first use, not precached.
+- [x] JPG/PNG input: turn the image into a one-page document before scanning.
 - [ ] Metadata detector: show the original author, title and attachments in "Also found".
 - [ ] "Replace with placeholder" per finding, with a choice of label.
 - [ ] Adjust a box: resize or move a box that does not fully cover the text.
-- [ ] Hebrew UI with right-to-left layout.
+- [x] Hebrew UI with right-to-left layout.
 - [x] Offline PWA: manifest and service worker (installable on iPhone, works offline).
 - [ ] Name-detection model (milestones 0 and 2): first check whether a Hebrew model can run in the browser at an acceptable size and speed.
-- [ ] Barcode and QR detection.
+- [ ] Barcode and QR detection (today: a permanent hint by the export button).
+- [x] Form fields and text comments are scanned; a match covers the whole field.
+- [x] Warn about pictures, form fields, signatures and stamps on a page.
+- [x] Output file name drops the original when it holds hidden or personal-looking data.
 - [ ] Searchable output: rebuild a text layer from the words that are not hidden.
 
 ## P4: Performance and polish

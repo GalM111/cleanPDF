@@ -62,6 +62,17 @@ export default defineConfig({
       workbox: {
         // pdf.js worker, character maps and fonts must be available offline.
         globPatterns: ['**/*.{js,mjs,css,html,svg,png,bcmap,pfb,ttf,pdf}'],
+        // The OCR engine and language data (about 15 MB) are not downloaded
+        // up front: they are fetched the first time a scan is read, then kept
+        // for offline use.
+        globIgnores: ['ocr/**'],
+        runtimeCaching: [
+          {
+            urlPattern: ({ url }) => url.pathname.includes('/ocr/'),
+            handler: 'StaleWhileRevalidate',
+            options: { cacheName: 'ocr-engine' },
+          },
+        ],
         maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,
         navigateFallback: 'index.html',
       },

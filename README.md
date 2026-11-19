@@ -4,6 +4,8 @@ Hide your personal details in a PDF before you send it to someone.
 
 You tell cleanPDF what your details are (names, ID number, phone, bank account, email, address). It finds every place they appear, in Hebrew and English and in their common written forms, and also suggests other values that look sensitive. You review the result, add your own boxes for signatures or stamps, and download a new PDF that is safe to share.
 
+Scanned PDFs and photos (JPG, PNG) are read on the device with OCR, and filled-in PDF form fields are checked too. The interface is in English and Hebrew.
+
 App: https://galm111.github.io/cleanPDF/
 
 ## Use it on iPhone
@@ -21,7 +23,7 @@ On a computer the app works the same, with a normal download button. Chrome and 
 - **Nothing is saved.** Your details and the document stay in memory and are gone when you close the tab. For offline use the app caches its own files only, never your documents.
 - **Hidden means destroyed.** Each page is rebuilt as an image with the boxes painted in. The new file has no text, metadata, attachments or form data from the original.
 
-The app finds a lot, but not everything. Always look through every page of the output before you send it. Pages without a text layer (scans, photos) are not read automatically yet, so draw boxes on them by hand.
+The app finds a lot, but not everything. Always look through every page of the output before you send it. Text inside pictures on an ordinary page, barcodes and QR codes are not found automatically, so draw boxes on them by hand. The OCR engine (about 15 MB) is downloaded the first time a scan is read and then works offline.
 
 ## Output styles
 
@@ -65,8 +67,12 @@ src/
     scan.ts        runs matcher + detectors on one page
     replace.ts     labels and sample values for each output style
     export.ts      flattens pages to images, builds the new PDF, verifies it
+    filename.ts    safe name for the cleaned file
+    ocr.ts         on-device OCR (Tesseract.js) for scans and photos
+    ocrItems.ts    turns OCR words into text items with page boxes
   SaveButton.tsx   download link on computers, Save / Share sheet on phones
   save.ts          share-sheet helpers
+  i18n.ts          interface text in English and Hebrew
 docs/
   PLAN.md          product plan and milestones
 ```

@@ -15,6 +15,8 @@
     Arial,
     sans-serif;
   color: var(--ink);
+  /* The app has one light look; keep controls light on dark-mode devices too. */
+  color-scheme: light;
 }
 
 * {
@@ -48,6 +50,7 @@ h3 {
 button {
   font: inherit;
   cursor: pointer;
+  color: var(--ink);
 }
 
 .link {
@@ -131,7 +134,7 @@ button {
 
 aside {
   background: var(--panel);
-  border-right: 1px solid var(--line);
+  border-inline-end: 1px solid var(--line);
   padding: 16px;
   overflow-y: auto;
 }
@@ -166,6 +169,8 @@ aside header {
 textarea {
   width: 100%;
   font: inherit;
+  color: var(--ink);
+  background: var(--panel);
   padding: 5px 8px;
   border: 1px solid var(--line);
   border-radius: 6px;
@@ -376,6 +381,8 @@ textarea {
 
 .modes label {
   display: flex;
+  background: var(--panel);
+  color: var(--ink);
   align-items: center;
   gap: 8px;
   padding: 6px 8px;
@@ -436,7 +443,7 @@ textarea {
   }
 
   aside {
-    border-right: 0;
+    border-inline-end: 0;
     border-bottom: 1px solid var(--line);
     /* Keep clear of the iPhone notch / rounded corners when installed. */
     padding-top: max(16px, env(safe-area-inset-top));
@@ -463,4 +470,52 @@ textarea {
 /* Note under the phone Save / Share button (not shown on computers). */
 .result .primary + .hint {
   margin-top: 8px;
+}
+
+.page-title .reread {
+  float: inline-end;
+  font-size: 12px;
+}
+
+.reading {
+  color: var(--accent);
+}
+
+.header-links {
+  display: flex;
+  gap: 12px;
+}
+
+.landing .lang {
+  position: absolute;
+  top: 16px;
+  inset-inline-end: 20px;
+}
+
+.result.ask {
+  background: #fff4dc;
+  color: #7a4a00;
+}
+
+.result .actions {
+  display: flex;
+  gap: 8px;
+}
+
+.result .actions button {
+  padding: 5px 10px;
+  border: 1px solid currentColor;
+  border-radius: 6px;
+  background: #fff;
+  color: inherit;
+  cursor: pointer;
+}
+
+textarea::placeholder {
+  color: var(--muted);
+  opacity: 1;
+}
+
+body {
+  color: var(--ink);
 }

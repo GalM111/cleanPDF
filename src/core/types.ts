@@ -22,6 +22,8 @@ export interface TextItem {
    * inside the field is unknown, so a match covers the whole field.
    */
   whole?: boolean;
+  /** A whole word read by OCR: always separated from its neighbours by a space. */
+  word?: boolean;
 }
 
 export interface PageText {
@@ -32,6 +34,8 @@ export interface PageText {
   images?: number;
   /** Form fields, signatures, stamps and drawings on the page. */
   marks?: number;
+  /** True when the text was read from the page picture (a scan or photo). */
+  ocr?: boolean;
 }
 
 export type DetailField = 'name' | 'id' | 'phone' | 'account' | 'email' | 'address' | 'other';
@@ -59,7 +63,9 @@ export interface Finding {
   /** Groups occurrences of the same value. */
   key: string;
   rects: Rect[];
-  note?: string;
+  note?: 'short' | 'fuzzy';
+  /** Not hidden until the user decides (uncertain match). */
+  review?: boolean;
 }
 
 export interface ManualBox {

@@ -113,3 +113,28 @@ export function rangeRects(
   }
   return rects;
 }
+
+/**
+ * Joins boxes that sit next to each other on one line into a single box, so
+ * a value that was read word by word (a scan) is covered without gaps that
+ * would show how many words it has.
+ */
+export function mergeRects(rects: Rect[]): Rect[] {
+  const out: Rect[] = [];
+  for (const r of [...rects].sort((a, b) => a.x - b.x)) {
+    const near = out.find(
+      (o) =>
+        Math.abs(o.y + o.h / 2 - (r.y + r.h / 2)) < Math.min(o.h, r.h) * 0.5 &&
+        r.x - (o.x + o.w) < r.h,
+    );
+    if (!near) {
+      out.push({ ...r });
+      continue;
+    }
+    const bottom = Math.max(near.y + near.h, r.y + r.h);
+    near.w = Math.max(near.x + near.w, r.x + r.w) - near.x;
+    near.y = Math.min(near.y, r.y);
+    near.h = bottom - near.y;
+  }
+  return out;
+}

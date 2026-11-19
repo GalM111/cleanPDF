@@ -20,7 +20,13 @@ const ALLOWED_HOSTS = new Set([
   'www.apache.org', // licence notice in PDF.js
   'react.dev', // links in React error messages
   'github.com', // link in a library error message
+  'rolldown.rs', // link in a bundler error message
   'bit.ly', // "Learn more" link in a Workbox (service worker) console warning
+  // Tesseract.js (OCR) default download places, used only when no path is
+  // given. src/core/ocr.ts always passes the app's own files, and the CSP
+  // would block these anyway.
+  'cdn.jsdelivr.net',
+  'opencollective.com', // funding link in the bundled tesseract.js package.json
 ]);
 
 // Largest allowed size of the main app script, in KiB. About 970 KiB today.

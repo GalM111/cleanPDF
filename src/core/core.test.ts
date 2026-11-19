@@ -1,8 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { isIban, isIsraeliId, isLuhn, patternMatches } from './detectors';
 import { safeOutputName } from './filename';
-import { charSpans } from './geometry';
+import { charSpans, mergeRects } from './geometry';
 import { detailMatches, numberVariants, resolveOverlaps } from './matcher';
+import { linesToItems } from './ocrItems';
 import { buildReplacements, sampleValue } from './replace';
 import { scanPage } from './scan';
 import { buildStream, normalize, normValue } from './text';
@@ -247,5 +248,87 @@ describe('output file name', () => {
     expect(safeOutputName('id 123456782.pdf', [])).toBe('document-clean.pdf');
     expect(safeOutputName('dana.levi@example.com.pdf', [])).toBe('document-clean.pdf');
     expect(safeOutputName('052-1234567 bill.pdf', [])).toBe('document-clean.pdf');
+  });
+});
+
+describe('short names', () => {
+  it('leaves a two-letter name for review instead of hiding it', () => {
+    const t = norm('גל כהן שילם. היה גל גדול בים.');
+    const all = detailMatches(t, { ...empty, name: ['גל כהן'] });
+    const full = all.find((m) => t.slice(m.start, m.end) === 'גל כהנ');
+    const alone = all.filter((m) => t.slice(m.start, m.end) === 'גל');
+    expect(full?.review).toBeUndefined();
+    expect(alone.length).toBeGreaterThan(0);
+    expect(alone.every((m) => m.review)).toBe(true);
+  });
+});
+
+describe('scanned pages', () => {
+  const fuzzy = (text: string, details: Partial<Details>) => {
+    const t = norm(text);
+    return resolveOverlaps(detailMatches(t, { ...empty, ...details }, true), []).map((m) => ({
+      text: t.slice(m.start, m.end),
+      note: m.note,
+    }));
+  };
+
+  it('turns OCR words into items on a shared line box', () => {
+    const items = linesToItems(
+      [
+        {
+          bbox: { x0: 30, y0: 60, x1: 300, y1: 90 },
+          words: [
+            { text: 'Dana', confidence: 90, bbox: { x0: 30, y0: 66, x1: 120, y1: 90 } },
+            { text: 'לוי', confidence: 80, bbox: { x0: 150, y0: 60, x1: 210, y1: 88 } },
+            { text: '~', confidence: 3, bbox: { x0: 250, y0: 60, x1: 300, y1: 88 } },
+          ],
+        },
+      ],
+      3,
+    );
+    expect(items.map((i) => i.str)).toEqual(['Dana', 'לוי']);
+    expect(items[0].y).toBe(items[1].y);
+    expect(items[0].x).toBeCloseTo(10);
+    expect(items[0].w).toBeCloseTo(30);
+    // The line box (60 to 90 px, plus a margin) is used, not the word's own.
+    expect(items[0].y).toBeCloseTo(19.5);
+    expect(items[0].h).toBeCloseTo(11);
+    expect(items.map((i) => i.rtl)).toEqual([false, true]);
+    expect(buildStream(items).text).toBe('Dana לוי');
+  });
+
+  it('puts boxes back on a page that was straightened before reading', () => {
+    const word = { text: 'Dana', confidence: 90, bbox: { x0: 900, y0: 480, x1: 1000, y1: 520 } };
+    const [it] = linesToItems([{ bbox: word.bbox, words: [word] }], 1, -Math.PI / 2, {
+      width: 1000,
+      height: 1000,
+    });
+    // A quarter turn about the centre moves the middle of the right edge to the middle of the bottom edge.
+    expect(it.x + it.w / 2).toBeCloseTo(500);
+    expect(it.y + it.h / 2).toBeCloseTo(950);
+  });
+
+  it('joins word boxes on one line and keeps separate lines apart', () => {
+    const r = (x: number, y: number) => ({ x, y, w: 30, h: 12 });
+    expect(mergeRects([r(0, 0), r(34, 1), r(70, 2), r(0, 30)])).toEqual([
+      { x: 0, y: 0, w: 100, h: 14 },
+      { x: 0, y: 30, w: 30, h: 12 },
+    ]);
+  });
+
+  it('accepts one misread character in longer values and marks it', () => {
+    expect(fuzzy('Tenant: Dana Lcvi', { name: ['Dana Levi'] })).toEqual([
+      { text: 'dana lcvi', note: 'fuzzy' },
+    ]);
+    expect(fuzzy('Dana Levi', { name: ['Dana Levi'] })).toEqual([
+      { text: 'dana levi', note: undefined },
+    ]);
+    // Too short to match loosely: "Lena" is a different name, not a misread "Dana".
+    expect(fuzzy('Lena', { name: ['Dana'] })).toEqual([]);
+  });
+
+  it('reads look-alike letters as digits in numbers', () => {
+    expect(fuzzy('ID O123456l8', { id: ['012345618'] }).map((m) => m.text)).toEqual(['o123456l8']);
+    expect(hits('ID O123456l8', { id: ['012345618'] })).toEqual([]);
   });
 });

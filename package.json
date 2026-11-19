@@ -12,14 +12,17 @@
     "lint": "eslint .",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "postinstall": "node scripts/copy-pdfjs-assets.mjs",
+    "postinstall": "node scripts/copy-assets.mjs",
     "sample": "node scripts/make-sample.mjs"
   },
   "dependencies": {
+    "@tesseract.js-data/eng": "^1.0.0",
+    "@tesseract.js-data/heb": "^1.0.0",
     "pdf-lib": "^1.17.1",
     "pdfjs-dist": "4.10.38",
     "react": "^19.0.0",
-    "react-dom": "^19.0.0"
+    "react-dom": "^19.0.0",
+    "tesseract.js": "^7.0.0"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
