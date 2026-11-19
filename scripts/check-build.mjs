@@ -20,6 +20,7 @@ const ALLOWED_HOSTS = new Set([
   'www.apache.org', // licence notice in PDF.js
   'react.dev', // links in React error messages
   'github.com', // link in a library error message
+  'bit.ly', // "Learn more" link in a Workbox (service worker) console warning
 ]);
 
 // Largest allowed size of the main app script, in KiB. About 970 KiB today.

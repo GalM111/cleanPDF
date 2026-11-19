@@ -11,6 +11,7 @@ import {
 import { scanPage } from './core/scan';
 import type { DetailField, Details, Finding, ManualBox, PageText, Rect } from './core/types';
 import { PageView } from './PageView';
+import { SaveButton } from './SaveButton';
 
 const FIELDS: { field: DetailField; label: string; hint: string }[] = [
   { field: 'name', label: 'Names', hint: 'Dana Levi; דנה לוי' },
@@ -58,9 +59,7 @@ interface Group {
   items: Finding[];
 }
 
-type Result = (
-  { ok: true; url: string; name: string; size: number } | { ok: false; leaks: string[] }
-) & {
+type Result = ({ ok: true; url: string; file: File } | { ok: false; leaks: string[] }) & {
   /** The state the file was built from; the result is stale once any of it changes. */
   inputs: unknown[];
 };
@@ -237,9 +236,9 @@ export function App() {
         setResult({ ok: false, leaks: check.leaks, inputs: builtFrom });
         return;
       }
-      const url = URL.createObjectURL(new Blob([bytes as BlobPart], { type: 'application/pdf' }));
       const name = loaded.name.replace(/\.pdf$/i, '') + '-clean.pdf';
-      setResult({ ok: true, url, name, size: bytes.length, inputs: builtFrom });
+      const file = new File([bytes as BlobPart], name, { type: 'application/pdf' });
+      setResult({ ok: true, url: URL.createObjectURL(file), file, inputs: builtFrom });
     } catch (e) {
       console.error(e);
       const detail = e instanceof Error && e.message ? ` (${e.message})` : '';
@@ -424,9 +423,7 @@ export function App() {
               the boxed areas are painted over for good.
             </p>
             <p>Anything not boxed is still visible. Look through every page before you send it.</p>
-            <a className="primary" href={current.url} download={current.name}>
-              Download {current.name} ({Math.round(current.size / 1024)} KB)
-            </a>
+            <SaveButton key={current.url} file={current.file} url={current.url} />
           </div>
         )}
         {current && !current.ok && (

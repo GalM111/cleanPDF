@@ -1,5 +1,5 @@
 import { PDFDocument } from 'pdf-lib';
-import { openPdf, startRender, type PDFDocumentProxy } from './pdf';
+import { capScale, openPdf, startRender, type PDFDocumentProxy } from './pdf';
 import type { OutputMode } from './replace';
 import { normValue } from './text';
 import type { Rect } from './types';
@@ -13,6 +13,7 @@ export interface DrawBox {
 }
 
 // 2.5 x 72 = 180 dots per inch: sharp enough to read, small enough to email.
+// Very large pages get less (see capScale) so their canvas is not left blank.
 const EXPORT_SCALE = 2.5;
 
 interface Px {
@@ -22,11 +23,11 @@ interface Px {
   h: number;
 }
 
-const toPx = (r: Rect): Px => ({
-  x: Math.floor(r.x * EXPORT_SCALE) - 1,
-  y: Math.floor(r.y * EXPORT_SCALE) - 1,
-  w: Math.ceil(r.w * EXPORT_SCALE) + 2,
-  h: Math.ceil(r.h * EXPORT_SCALE) + 2,
+const toPx = (r: Rect, s: number): Px => ({
+  x: Math.floor(r.x * s) - 1,
+  y: Math.floor(r.y * s) - 1,
+  w: Math.ceil(r.w * s) + 2,
+  h: Math.ceil(r.h * s) + 2,
 });
 
 interface Colors {
@@ -88,8 +89,14 @@ function sampleColors(ctx: CanvasRenderingContext2D, p: Px): Colors {
   return { bg: css(bg), ink: css(ink) };
 }
 
-function paint(ctx: CanvasRenderingContext2D, box: DrawBox, mode: OutputMode, colors: Colors) {
-  const { x, y, w, h } = toPx(box.rect);
+function paint(
+  ctx: CanvasRenderingContext2D,
+  box: DrawBox,
+  mode: OutputMode,
+  colors: Colors,
+  s: number,
+) {
+  const { x, y, w, h } = toPx(box.rect, s);
   if (mode === 'black' || mode === 'white' || mode === 'page') {
     ctx.fillStyle = mode === 'black' ? '#000' : mode === 'white' ? '#fff' : colors.bg;
     ctx.fillRect(x, y, w, h);
@@ -101,7 +108,7 @@ function paint(ctx: CanvasRenderingContext2D, box: DrawBox, mode: OutputMode, co
     ctx.fillStyle = colors.bg;
     ctx.fillRect(x, y, w, h);
     if (!box.label) return;
-    let size = (box.rect.h * EXPORT_SCALE) / 1.3;
+    let size = (box.rect.h * s) / 1.3;
     ctx.font = `${size}px Arial, sans-serif`;
     const width = ctx.measureText(box.label).width;
     if (width > w - 6) {
@@ -112,7 +119,7 @@ function paint(ctx: CanvasRenderingContext2D, box: DrawBox, mode: OutputMode, co
     ctx.direction = box.rtl ? 'rtl' : 'ltr';
     ctx.textAlign = box.rtl ? 'right' : 'left';
     ctx.textBaseline = 'alphabetic';
-    const baseline = box.rect.y * EXPORT_SCALE + (box.rect.h * EXPORT_SCALE) / 1.3;
+    const baseline = box.rect.y * s + (box.rect.h * s) / 1.3;
     ctx.fillText(box.label, box.rtl ? x + w - 3 : x + 3, baseline);
     ctx.direction = 'ltr';
     return;
@@ -152,13 +159,14 @@ export async function exportPdf(
     onProgress(i + 1, doc.numPages);
     const page = await doc.getPage(i + 1);
     const size = page.getViewport({ scale: 1 });
+    const scale = capScale(size.width, size.height, EXPORT_SCALE);
     const canvas = document.createElement('canvas');
-    await startRender(page, canvas, EXPORT_SCALE).promise;
+    await startRender(page, canvas, scale).promise;
     const ctx = canvas.getContext('2d')!;
     // Read all colours first, so one painted box cannot affect its neighbour.
     const boxes = boxesByPage[i] ?? [];
-    const colors = boxes.map((box) => sampleColors(ctx, toPx(box.rect)));
-    boxes.forEach((box, k) => paint(ctx, box, mode, colors[k]));
+    const colors = boxes.map((box) => sampleColors(ctx, toPx(box.rect, scale)));
+    boxes.forEach((box, k) => paint(ctx, box, mode, colors[k], scale));
 
     const blob = await new Promise<Blob>((resolve, reject) =>
       canvas.toBlob(
@@ -171,6 +179,8 @@ export async function exportPdf(
     const outPage = out.addPage([size.width, size.height]);
     outPage.drawImage(image, { x: 0, y: 0, width: size.width, height: size.height });
     canvas.width = canvas.height = 0;
+    // Release this page's fonts and images: matters on phones with long files.
+    page.cleanup();
   }
   out.setTitle('');
   out.setAuthor('');

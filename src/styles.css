@@ -438,5 +438,29 @@ textarea {
   aside {
     border-right: 0;
     border-bottom: 1px solid var(--line);
+    /* Keep clear of the iPhone notch / rounded corners when installed. */
+    padding-top: max(16px, env(safe-area-inset-top));
+    padding-left: max(16px, env(safe-area-inset-left));
+    padding-right: max(16px, env(safe-area-inset-right));
   }
+
+  .pages {
+    padding: 12px max(12px, env(safe-area-inset-right)) max(12px, env(safe-area-inset-bottom))
+      max(12px, env(safe-area-inset-left));
+  }
+
+  .landing {
+    padding-top: env(safe-area-inset-top);
+  }
+
+  /* Below 16px, iPhone Safari zooms the page in when a field is focused. */
+  textarea,
+  input {
+    font-size: 16px;
+  }
+}
+
+/* Note under the phone Save / Share button (not shown on computers). */
+.result .primary + .hint {
+  margin-top: 8px;
 }

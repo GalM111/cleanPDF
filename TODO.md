@@ -24,7 +24,7 @@ Ordered by priority. See [docs/PLAN.md](docs/PLAN.md) for the full product plan.
 - [x] Privacy check on the build: CSP present, no unknown outside addresses, size budget (`scripts/check-build.mjs`).
 - [ ] End-to-end job with Playwright against the production build (see P2).
 - [ ] Dependabot for npm and GitHub Actions; `npm audit --omit=dev` in CI.
-- [ ] Deploy `dist/` from `main` (choose GitHub Pages, Cloudflare Pages or Netlify).
+- [x] Deploy `dist/` from `main` to GitHub Pages (`.github/workflows/pages.yml`), gated by the same checks.
 - [ ] On GitHub: protect `main` and require the CI checks to pass.
 
 ## P2: Tests
@@ -41,7 +41,7 @@ Ordered by priority. See [docs/PLAN.md](docs/PLAN.md) for the full product plan.
 - [ ] "Replace with placeholder" per finding, with a choice of label.
 - [ ] Adjust a box: resize or move a box that does not fully cover the text.
 - [ ] Hebrew UI with right-to-left layout.
-- [ ] Offline PWA: manifest and service worker.
+- [x] Offline PWA: manifest and service worker (installable on iPhone, works offline).
 - [ ] Name-detection model (milestones 0 and 2): first check whether a Hebrew model can run in the browser at an acceptable size and speed.
 - [ ] Barcode and QR detection.
 - [ ] Searchable output: rebuild a text layer from the words that are not hidden.
@@ -50,6 +50,6 @@ Ordered by priority. See [docs/PLAN.md](docs/PLAN.md) for the full product plan.
 
 - [ ] Split the bundle: load pdf-lib and the export code only when needed (main chunk is ~1 MB).
 - [ ] Move scanning and export into Web Workers.
-- [ ] Cap the canvas size for very large pages so export does not run out of memory.
+- [x] Cap the canvas size for very large pages so export does not run out of memory (`capScale` in `src/core/pdf.ts`).
 - [ ] Warn that context (job title, salary, employer) can still identify the user.
 - [ ] Decide the open questions: app name, free versus paid.

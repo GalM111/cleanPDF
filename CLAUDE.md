@@ -11,11 +11,11 @@ Browser-only app that hides personal details in a PDF and exports a flattened co
 - `npm run build`: `tsc --noEmit` + Vite build
 - `npm run check:build`: after a build, checks the CSP, that no unknown outside address is in `dist/`, and the bundle size budget (`scripts/check-build.mjs`)
 
-Run lint, format check, tests, build and `check:build` before committing; CI (`.github/workflows/ci.yml`) runs the same on every push. A new outside hostname in the build fails CI: add it to `ALLOWED_HOSTS` in `scripts/check-build.mjs` only if it is never contacted (a namespace or a link in an error message).
+Run lint, format check, tests, build and `check:build` before committing; CI (`.github/workflows/ci.yml`) runs the same on every push, and `.github/workflows/pages.yml` runs them again before publishing `main` to GitHub Pages. A new outside hostname in the build fails CI: add it to `ALLOWED_HOSTS` in `scripts/check-build.mjs` only if it is never contacted (a namespace or a link in an error message).
 
 ## Rules that matter
 
-- **Nothing leaves the device and nothing is saved.** Never add network calls, analytics, CDN assets, `localStorage` for user data, or anything that persists the document or the user's details. The production build sets a Content-Security-Policy in `vite.config.ts` (`connect-src 'self'`); a new asset must be served from the app itself.
+- **Nothing leaves the device and nothing is saved.** Never add network calls, analytics, CDN assets, `localStorage` for user data, or anything that persists the document or the user's details. The production build sets a Content-Security-Policy in `vite.config.ts` (`connect-src 'self'`); a new asset must be served from the app itself. The PWA service worker (`vite-plugin-pwa` in `vite.config.ts`) precaches the app's own files only; never let it cache user documents or exported files.
 - **Hidden means destroyed.** Export rasterises every page (`src/core/export.ts`) and builds a new PDF from images only. Do not copy any object from the source PDF into the output.
 - **Hebrew is first-class.** Text goes through `normalize` / `normValue` in `src/core/text.ts` (final letters, vowel points, bidi controls). Matching works on normalised text and maps back to page boxes via `src/core/geometry.ts`.
 - Keep `src/core` free of React and, where possible, of the DOM so it stays unit-testable. Browser-only pieces (canvas measuring, rendering) live in `pdf.ts` and `export.ts`.

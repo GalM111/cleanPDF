@@ -4,10 +4,21 @@ Hide your personal details in a PDF before you send it to someone.
 
 You tell cleanPDF what your details are (names, ID number, phone, bank account, email, address). It finds every place they appear, in Hebrew and English and in their common written forms, and also suggests other values that look sensitive. You review the result, add your own boxes for signatures or stamps, and download a new PDF that is safe to share.
 
+App: https://galm111.github.io/cleanPDF/
+
+## Use it on iPhone
+
+1. Open the link above in **Safari**.
+2. Tap **Share** → **Add to Home Screen**.
+3. Open cleanPDF from the new icon. After the first visit it also works offline.
+4. When the clean PDF is ready, tap **Save / Share** and choose **Save to Files** (or send it straight to Mail, WhatsApp, etc.).
+
+On a computer the app works the same, with a normal download button. Chrome and Edge also offer "Install app" in the address bar.
+
 ## Privacy
 
 - **The document never leaves your device.** There is no server, no upload and no account. A Content-Security-Policy stops the page from sending requests anywhere.
-- **Nothing is saved.** Your details and the document stay in memory and are gone when you close the tab.
+- **Nothing is saved.** Your details and the document stay in memory and are gone when you close the tab. For offline use the app caches its own files only, never your documents.
 - **Hidden means destroyed.** Each page is rebuilt as an image with the boxes painted in. The new file has no text, metadata, attachments or form data from the original.
 
 The app finds a lot, but not everything. Always look through every page of the output before you send it. Pages without a text layer (scans, photos) are not read automatically yet, so draw boxes on them by hand.
@@ -37,7 +48,7 @@ npm run check:build # CSP in place, no outside addresses, size budget (run after
 npm run sample      # regenerate public/sample.pdf (needs a font with Hebrew letters)
 ```
 
-The production build is a static site; host `dist/` anywhere. CI runs lint, format check, tests, build and `check:build` on every push.
+The production build is a static site. CI (`.github/workflows/ci.yml`) runs lint, format check, tests, build and `check:build` on every push. Pushing to `main` also publishes the site to GitHub Pages through `.github/workflows/pages.yml`.
 
 ## Project layout
 
@@ -54,6 +65,8 @@ src/
     scan.ts        runs matcher + detectors on one page
     replace.ts     labels and sample values for each output style
     export.ts      flattens pages to images, builds the new PDF, verifies it
+  SaveButton.tsx   download link on computers, Save / Share sheet on phones
+  save.ts          share-sheet helpers
 docs/
   PLAN.md          product plan and milestones
 ```
