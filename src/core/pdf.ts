@@ -44,11 +44,16 @@ export async function extractPage(page: PDFPageProxy): Promise<PageText> {
       w: it.width,
       h: fontHeight * 1.3,
       rtl: it.dir === 'rtl',
-      font: content.styles[it.fontName]?.fontFamily ?? 'sans-serif',
+      // PDF.js loads the document's own font under this name; measuring with
+      // it puts each box exactly over its letters. The generic family is the
+      // fallback when the font has no file (standard fonts, some Type3 fonts).
+      font: `"${it.fontName}", ${content.styles[it.fontName]?.fontFamily ?? 'sans-serif'}`,
     });
   }
   const marks = await addAnnotationText(page, viewport, items);
+  // Reading the drawing commands also makes PDF.js load the page's fonts.
   const images = await countImages(page);
+  if (typeof document !== 'undefined') await document.fonts.ready;
   return { items, width: viewport.width, height: viewport.height, images, marks };
 }
 
