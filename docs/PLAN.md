@@ -2,7 +2,7 @@
 
 Working name: undecided (candidates: Inkout, Maskly, Blankit, Anonydoc, Cloakdoc; availability not checked).
 
-Diagrams: [architecture.mmd](architecture.mmd), [processing-flow.mmd](processing-flow.mmd).
+Diagrams: [ARCHITECTURE.md](ARCHITECTURE.md) ([architecture.mmd](architecture.mmd), [processing-flow.mmd](processing-flow.mmd)).
 
 ## 1. The idea
 

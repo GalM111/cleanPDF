@@ -63,7 +63,7 @@ export interface Finding {
   /** Groups occurrences of the same value. */
   key: string;
   rects: Rect[];
-  note?: 'short' | 'fuzzy';
+  note?: 'short' | 'fuzzy' | 'barcodeMine' | 'barcodeData';
   /** Not hidden until the user decides (uncertain match). */
   review?: boolean;
 }

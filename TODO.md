@@ -42,11 +42,11 @@ Ordered by priority. See [docs/PLAN.md](docs/PLAN.md) for the full product plan.
 - [x] JPG/PNG input: turn the image into a one-page document before scanning.
 - [ ] Metadata detector: show the original author, title and attachments in "Also found".
 - [ ] "Replace with placeholder" per finding, with a choice of label.
-- [ ] Adjust a box: resize or move a box that does not fully cover the text.
+- [x] Adjust a box: move, resize or remove a box you drew. On phones, a finger scrolls; drawing needs "Draw a box".
 - [x] Hebrew UI with right-to-left layout.
 - [x] Offline PWA: manifest and service worker (installable on iPhone, works offline).
 - [ ] Name-detection model (milestones 0 and 2): first check whether a Hebrew model can run in the browser at an acceptable size and speed.
-- [ ] Barcode and QR detection (today: a permanent hint by the export button).
+- [x] Barcode and QR detection (zxing-wasm in a worker; a code holding your details is hidden by default).
 - [x] Form fields and text comments are scanned; a match covers the whole field.
 - [x] Warn about pictures, form fields, signatures and stamps on a page.
 - [x] Output file name drops the original when it holds hidden or personal-looking data.

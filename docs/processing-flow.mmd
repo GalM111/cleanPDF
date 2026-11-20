@@ -1,38 +1,42 @@
-%% Processing flow for one document, from upload to safe download.
+%% Processing flow for one document, from opening it to a safe file, as built.
 flowchart TD
-    A([User drops a PDF or image]) --> P0[User types My details for this session<br/>kept in memory only, optional]
-    P0 --> B[Load file in memory<br/>no upload]
-    B --> C[Render each page with PDF.js]
-    C --> D{Page has a usable<br/>text layer?}
-    D -- yes --> E[Extract words + coordinates<br/>fix right-to-left order]
-    D -- "no (scan, photo, garbled text)" --> F[OCR page with Tesseract.js<br/>words + coordinates]
-    E --> N0[Normalise text<br/>text stream + digits-only stream, mapped to boxes]
-    F --> N0
+    A([User opens a PDF, scan or photo]) --> B{Photo?}
+    B -- "JPG / PNG" --> B2[Wrap it in a one-page PDF]
+    B -- PDF --> C
+    B2 --> C[Open with PDF.js, in memory only<br/>password-protected: ask to remove it]
 
-    N0 --> L1[Layer 1: match My details<br/>variants of each value, exact on text pages,<br/>fuzzy on OCR pages]
-    N0 --> L2[Layer 2: Also found<br/>name model, patterns, field labels,<br/>barcodes, metadata]
+    C --> D[For each page: text + positions<br/>form-field values and text comments<br/>count pictures, signatures, stamps<br/>load the embedded fonts]
+    D --> E{Enough text<br/>on the page?}
+    E -- yes --> G
+    E -- "no (scan, photo)" --> F[OCR in the background<br/>Tesseract.js, English + Hebrew<br/>clean up, straighten, map words to boxes]
+    F --> G[Normalise text<br/>Hebrew letters, right-to-left order, digits-only stream]
+    D --> BC[Barcode check in the background, page by page<br/>quick search on PDF pages, thorough on scans]
 
-    L1 --> H[Merge findings<br/>same value gets the same label everywhere]
+    P0[My details typed by the user<br/>memory only] --> L1
+    G --> L1[My details: every written form<br/>exact on text, loose on scans]
+    G --> L2[Also found: patterns with check digits,<br/>bank accounts, field labels]
+    BC --> L3[Barcodes / QR codes<br/>holds my details: hidden<br/>otherwise: suggestion]
+
+    L1 --> H[Findings with boxes<br/>measured with the document's own font]
     L2 --> H
+    L3 --> H
 
-    H --> I[Review screen<br/>Your details: hidden by default<br/>Also found: suggestions awaiting a decision]
+    H --> I[Review screen<br/>Your details: hidden by default<br/>Also found: waiting for a decision<br/>warnings: pictures, form fields, no text]
     I --> J{User action}
-    J -- "hide / keep / replace" --> I
-    J -- "hide everywhere: add to session details,<br/>re-run matcher" --> I
-    J -- "ignore for this session" --> I
-    J -- "manual box (signature, stamp, photo)" --> I
-    J -- export --> W{Undecided<br/>suggestions left?}
-    W -- "yes: warn user" --> I
-    W -- no --> K{Output mode}
+    J -- "tick / untick, click a box" --> I
+    J -- "hide everywhere, ignore" --> I
+    J -- "draw, move, resize, remove own box" --> I
+    J -- export --> W{Undecided items<br/>or pages with no text?}
+    W -- "yes: ask in the page" --> J
+    W -- "no, or export anyway" --> K[Choose look: black, white,<br/>page colour, labels, sample data]
 
-    K -- Anonymous --> L[Black boxes]
-    K -- Template --> M["Labelled placeholders<br/>[FULL NAME], [ID NUMBER], [BANK ACCOUNT]"]
-
-    L --> N[Paint redactions into page pixels<br/>original content under the box is destroyed]
-    M --> N
-    N --> O[Rebuild a new PDF from the flattened pages<br/>no metadata, attachments, form data or history]
-    O --> Q1[Verify: extract text from the output<br/>and search for every hidden value]
-    Q1 --> Q{Clean?}
-    Q -- no --> I
-    Q -- yes --> R([Download anonymised PDF])
-    R --> Z([Tab closed: document and details erased])
+    K --> N[Draw each page as a picture<br/>paint the boxes into the pixels]
+    N --> O[Build a new PDF from the pictures only<br/>no text, form data, metadata, attachments or dates]
+    O --> Q[Verify: no hidden value can be read]
+    Q -- "leak found" --> I
+    Q -- clean --> S[Safe file name<br/>personal-looking name becomes document-clean.pdf]
+    S --> R{Device}
+    R -- PC --> R1([Download])
+    R -- phone --> R2([Share sheet: Save to Files, Mail, WhatsApp])
+    R1 --> Z([Tab closed: document and details are gone])
+    R2 --> Z

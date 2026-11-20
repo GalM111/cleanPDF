@@ -27,6 +27,9 @@ const ALLOWED_HOSTS = new Set([
   // would block these anyway.
   'cdn.jsdelivr.net',
   'opencollective.com', // funding link in the bundled tesseract.js package.json
+  // zxing-wasm (barcode reader) default download place, used only when no file
+  // is given. src/core/barcodeWorker.ts always passes the app's own file.
+  'fastly.jsdelivr.net',
 ]);
 
 // Largest allowed size of the main app script, in KiB. About 970 KiB today.

@@ -68,7 +68,9 @@ const en = {
     'The new file is made of page images only: it has no text, form data, metadata or attachments, and the boxed areas are painted over for good.',
   reviewPages: 'Anything not boxed is still visible. Look through every page before you send it.',
   barcodeHint:
-    'Barcodes and QR codes are not hidden automatically. Draw a box over them if they may hold an account or customer number.',
+    'Barcodes and QR codes are found automatically. Check that each one is boxed, and draw a box over any that was missed.',
+  findingBarcodes: (page: number, total: number) =>
+    `Looking for barcodes… (page ${page} of ${total})`,
   saveShare: (name: string, size: string) => `Save / Share ${name} (${size})`,
   saveHint: 'Choose “Save to Files” to keep it on your phone, or pick an app to send it.',
   shareFailed: 'Sharing did not open. Use the download link instead.',
@@ -89,7 +91,12 @@ const en = {
   scanReading: (pct: number) => `reading scanned page… ${pct}%`,
   boxTitle: (kind: string, text: string, hidden: boolean) =>
     `${kind}: ${text} — click to ${hidden ? 'keep' : 'hide'}`,
-  manualTitle: 'Manual box — click to remove',
+  manualTitle: 'Your box — click to select, then drag to move or use the corners to resize',
+  removeBox: 'Remove this box',
+  drawBox: 'Draw a box',
+  doneDrawing: 'Done drawing',
+  drawHintTouch:
+    'To hide something that was not found, tap “Draw a box” and drag over it. Tap a box you drew to move, resize or remove it.',
   redacted: 'REDACTED',
   kinds: {
     Name: 'Name',
@@ -101,11 +108,14 @@ const en = {
     Custom: 'Custom',
     IBAN: 'IBAN',
     'Card number': 'Card number',
+    Barcode: 'Barcode / QR code',
     Other: 'Other',
   } as Record<string, string>,
   notes: {
     short: 'Short word, may be an ordinary word. Tick to hide',
     fuzzy: 'Close match in a scan, please check',
+    barcodeMine: 'Holds your details',
+    barcodeData: 'May hold personal data',
   },
 };
 
@@ -179,7 +189,8 @@ const he: Strings = {
     'הקובץ החדש מורכב מתמונות של העמודים בלבד: אין בו טקסט, נתוני טפסים, מטא-דאטה או קבצים מצורפים, והאזורים שסומנו בתיבות נצבעו לצמיתות.',
   reviewPages: 'כל מה שלא סומן בתיבה עדיין גלוי. עברו על כל העמודים לפני השליחה.',
   barcodeHint:
-    'ברקודים וקודי QR לא מוסתרים אוטומטית. ציירו עליהם תיבה אם ייתכן שיש בהם מספר חשבון או מספר לקוח.',
+    'ברקודים וקודי QR מזוהים אוטומטית. ודאו שכל אחד מהם מסומן בתיבה, וציירו תיבה על כל קוד שפוספס.',
+  findingBarcodes: (page, total) => `מחפש ברקודים… (עמוד ${page} מתוך ${total})`,
   saveShare: (name, size) => `שמירה / שיתוף של ${name} (${size})`,
   saveHint: 'בחרו "שמירה בקבצים" כדי לשמור בטלפון, או בחרו אפליקציה לשליחה.',
   shareFailed: 'השיתוף לא נפתח. השתמשו בקישור ההורדה.',
@@ -199,7 +210,12 @@ const he: Strings = {
   scanReading: (pct) => `קורא עמוד סרוק… ${pct}%`,
   boxTitle: (kind, text, hidden) =>
     `${kind}: ${text} — לחצו כדי ${hidden ? 'להשאיר גלוי' : 'להסתיר'}`,
-  manualTitle: 'תיבה ידנית — לחצו להסרה',
+  manualTitle: 'תיבה שציירתם — לחצו כדי לבחור, ואז גררו כדי להזיז או משכו בפינות כדי לשנות גודל',
+  removeBox: 'הסרת התיבה',
+  drawBox: 'ציור תיבה',
+  doneDrawing: 'סיום ציור',
+  drawHintTouch:
+    'כדי להסתיר משהו שלא נמצא, הקישו על "ציור תיבה" וגררו מעליו. הקישו על תיבה שציירתם כדי להזיז, לשנות גודל או להסיר אותה.',
   redacted: 'הוסתר',
   kinds: {
     Name: 'שם',
@@ -211,11 +227,14 @@ const he: Strings = {
     Custom: 'אחר',
     IBAN: 'IBAN',
     'Card number': 'מספר כרטיס',
+    Barcode: 'ברקוד / קוד QR',
     Other: 'אחר',
   },
   notes: {
     short: 'מילה קצרה, ייתכן שזו מילה רגילה. סמנו כדי להסתיר',
     fuzzy: 'התאמה קרובה בסריקה, כדאי לבדוק',
+    barcodeMine: 'מכיל את הפרטים שלכם',
+    barcodeData: 'ייתכן שמכיל מידע אישי',
   },
 };
 

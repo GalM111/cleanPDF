@@ -1,57 +1,60 @@
-%% Component architecture: everything runs on the user's device, no backend.
+%% cleanPDF architecture as built. Everything that touches the document runs on
+%% the user's device; GitHub only serves the app's own files.
 flowchart TB
-    Host["Static host / CDN<br/>(app code, OCR data, name model)"]
-
-    subgraph Device["User's browser - the document never leaves this box"]
-        direction TB
-
-        subgraph UI["UI thread (React + TypeScript, English + Hebrew)"]
-            Profile["My details form<br/>names, ID, phone, address, bank account, free text"]
-            Upload["Upload / drag and drop"]
-            Review["Review screen<br/>page preview + two lists: Your details / Also found<br/>hide, keep, replace, hide everywhere, ignore, manual box"]
-            Export["Export / download"]
-        end
-
-        subgraph Workers["Web Workers (heavy work, off the UI thread)"]
-            Parse["PDF parser<br/>PDF.js: render pages, extract text + positions<br/>normalise right-to-left text order"]
-            OCR["OCR<br/>Tesseract.js (eng + heb): scanned pages, images,<br/>and pages whose text layer is garbled"]
-            Norm["Text normaliser<br/>one text stream per page, mapped back to boxes<br/>plus a digits-only stream"]
-            Matcher["Layer 1: My details matcher<br/>variant generator + exact / fuzzy match"]
-            Detect["Layer 2: Also found detectors"]
-            Redact["Redaction engine<br/>paint boxes or placeholders into page images,<br/>rebuild PDF with pdf-lib"]
-            Verify["Verifier<br/>re-read output, confirm no hidden value or metadata remains"]
-        end
-
-        subgraph Detectors["Also found detectors (pluggable)"]
-            Rules["Patterns + checksums<br/>Israeli ID, IL IBAN, card, phone, email, dates"]
-            Labels["Field labels, English + Hebrew<br/>value next to Name / ID / Address / Account"]
-            Codes["Barcodes and QR codes"]
-            Meta["Document metadata and attachments"]
-            NER["Name model, English + Hebrew<br/>(transformers.js, ONNX)"]
-        end
-
-        Store["Session memory only<br/>My details + ignore list<br/>erased when the tab closes, nothing saved"]
+    subgraph Delivery["Delivery: app files only"]
+        direction LR
+        Repo["GitHub repo<br/>GalM111/cleanPDF"] --> CI["CI on every push<br/>lint · format · unit tests · build<br/>check:build (CSP, outside hosts, size)"]
+        CI -- "main only" --> Pages["GitHub Pages<br/>static files"]
+        Bot["Dependabot<br/>monthly, minor/patch only"] -.-> Repo
     end
 
-    Host -- "download once, then cached (PWA, works offline)" --> Device
+    Pages -- "first visit: app files<br/>(OCR engine on first scan)" --> SW
 
-    Profile <--> Store
-    Upload --> Parse
-    Parse -- "no usable text layer" --> OCR
-    Parse --> Norm
-    OCR --> Norm
-    Norm --> Matcher
-    Norm --> Detect
-    Store -- "details + ignore list" --> Matcher
-    Store -- "ignore list" --> Detect
-    Detect --> Rules
-    Detect --> Labels
-    Detect --> Codes
-    Detect --> Meta
-    Detect --> NER
-    Matcher -- "Your details: hidden by default" --> Review
-    Detect -- "Also found: suggestions" --> Review
-    Review -- "hide everywhere / ignore" --> Store
-    Review -- "approved redactions" --> Redact
-    Redact --> Verify
-    Verify --> Export
+    subgraph Device["User's device: iPhone or PC"]
+        direction TB
+        SW["Service worker<br/>precache: app, PDF.js worker + fonts, barcode engine<br/>runtime cache: OCR engine (on first use)<br/>never caches documents or results"]
+        CSP["Content-Security-Policy<br/>connect-src 'self': the page cannot send data anywhere"]
+
+        subgraph UI["Page: React, English + Hebrew"]
+            direction TB
+            Load["Open a PDF, scan or photo<br/>(photo becomes a one-page PDF)"]
+            Details["My details form<br/>memory only"]
+            Review["Review: page previews + lists<br/>toggle boxes · hide everywhere · ignore<br/>draw, move, resize, remove your own boxes<br/>(phones: Draw a box mode)"]
+            Save["Save: download on PC<br/>Save / Share sheet on phones"]
+        end
+
+        subgraph Core["src/core: logic, unit-tested"]
+            direction TB
+            PDF["pdf.ts<br/>text + positions, form fields and comments,<br/>embedded fonts, picture count, canvas cap"]
+            Text["text.ts + geometry.ts<br/>normalise (Hebrew, RTL), map text to boxes"]
+            Match["matcher.ts<br/>My details: variants, exact / fuzzy"]
+            Detect["detectors.ts<br/>ID, IBAN, card, phone, email, bank account,<br/>field labels (EN + HE)"]
+            Scan["scan.ts<br/>findings per page + barcode findings"]
+            Replace["replace.ts<br/>black, white, page colour, labels, sample data"]
+            Export["export.ts + filename.ts<br/>rasterise, paint, new PDF, verify, safe name"]
+        end
+
+        subgraph Workers["Background workers"]
+            direction LR
+            PDFW["PDF.js worker<br/>parse + render"]
+            OCRW["OCR worker<br/>Tesseract.js eng + heb"]
+            BCW["Barcode worker<br/>zxing-wasm"]
+        end
+    end
+
+    Load --> PDF
+    PDF <--> PDFW
+    PDF -- "page without text" --> OCRW
+    Load -- "every page" --> BCW
+    PDF --> Text --> Scan
+    OCRW --> Text
+    BCW --> Scan
+    Details --> Match
+    Match --> Scan
+    Detect --> Scan
+    Scan --> Review
+    Review -- "approved boxes" --> Replace --> Export --> Save
+
+    Planned["Planned: name model in running text,<br/>document metadata detector"]:::planned -.-> Scan
+
+    classDef planned stroke-dasharray: 4 3,color:#777

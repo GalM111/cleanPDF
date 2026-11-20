@@ -5,7 +5,7 @@ import { charSpans, mergeRects } from './geometry';
 import { detailMatches, numberVariants, resolveOverlaps } from './matcher';
 import { linesToItems } from './ocrItems';
 import { buildReplacements, sampleValue } from './replace';
-import { scanPage } from './scan';
+import { barcodeFindings, scanPage } from './scan';
 import { buildStream, normalize, normValue } from './text';
 import type { Details, Finding, PageText, TextItem } from './types';
 
@@ -215,6 +215,37 @@ describe('bank accounts', () => {
     expect(kinds('signed on 12-03-2026')).toEqual([]);
     expect(kinds('call 03-000-0000 or 052-123-4567')).toEqual(['Phone', 'Phone']);
     expect(kinds('ID 123456782')).toEqual(['ID number']);
+  });
+});
+
+describe('barcodes and QR codes', () => {
+  const rect = { x: 10, y: 20, w: 100, h: 100 };
+  const qr = (text: string) => ({ text, format: 'QRCode', rect });
+
+  it('hides a code that holds one of my details', () => {
+    const [f] = barcodeFindings(0, [qr('Customer 123456782')], { ...empty, id: ['123456782'] });
+    expect(f.source).toBe('details');
+    expect(f.note).toBe('barcodeMine');
+    expect(f.kind).toBe('Barcode');
+    expect(f.rects).toEqual([rect]);
+  });
+
+  it('suggests other codes, marking ones that look personal', () => {
+    const [plain, personal] = barcodeFindings(
+      1,
+      [qr('INV-2026-0042'), qr('call 052-1234567')],
+      empty,
+    );
+    expect(plain.source).toBe('found');
+    expect(plain.note).toBeUndefined();
+    expect(personal.note).toBe('barcodeData');
+  });
+
+  it('drops ignored codes and shortens long content', () => {
+    const long = qr('x'.repeat(80));
+    const [f] = barcodeFindings(0, [long], empty);
+    expect(f.text).toBe(`${'x'.repeat(40)}…`);
+    expect(barcodeFindings(0, [long], empty, new Set([f.key]))).toEqual([]);
   });
 });
 

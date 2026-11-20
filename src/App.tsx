@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type DragEvent } from 'react';
+import { findBarcodes, stopBarcodes, type Barcode } from './core/barcodes';
 import { ocrPage, stopOcr } from './core/ocr';
 import { exportPdf, verifyPdf, type DrawBox } from './core/export';
 import { buildReplacements, isHebrew, MODES, widestIndex, type OutputMode } from './core/replace';
@@ -12,7 +13,7 @@ import {
   type PDFPageProxy,
 } from './core/pdf';
 import { safeOutputName } from './core/filename';
-import { scanPage } from './core/scan';
+import { barcodeFindings, scanPage } from './core/scan';
 import type { DetailField, Details, Finding, ManualBox, PageText, Rect } from './core/types';
 import { initialLang, saveLang, STRINGS, type Lang } from './i18n';
 import { PageView } from './PageView';
@@ -94,6 +95,11 @@ export function App() {
   const [ignored, setIgnored] = useState<string[]>([]);
   const [overrides, setOverrides] = useState<Record<string, boolean>>({});
   const [manual, setManual] = useState<ManualBox[]>([]);
+  // Phones: a finger draws boxes only while this is on, so pages still scroll.
+  const [drawing, setDrawing] = useState(false);
+  const [touch] = useState(
+    () => typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches,
+  );
   const [mode, setMode] = useState<OutputMode>('black');
   const [busy, setBusy] = useState('');
   const [error, setError] = useState('');
@@ -108,6 +114,10 @@ export function App() {
   // Goes up when the document changes, so late OCR results are dropped.
   const session = useRef(0);
   const scanning = Object.values(scans).filter((s) => s !== 'failed').length;
+  // Barcodes and QR codes found on each page, filled in after loading.
+  const [barcodes, setBarcodes] = useState<Record<number, Barcode[]>>({});
+  // Progress of the barcode check: the page being checked, or null when done.
+  const [barcodeCheck, setBarcodeCheck] = useState<{ page: number; total: number } | null>(null);
 
   const details = useMemo(() => {
     const d = {} as Details;
@@ -118,8 +128,11 @@ export function App() {
   const findings = useMemo(() => {
     if (!loaded) return [];
     const ignore = new Set(ignored);
-    return loaded.pages.flatMap((p, i) => scanPage(i, p, details, ignore, canvasMeasure));
-  }, [loaded, details, ignored]);
+    return loaded.pages.flatMap((p, i) => [
+      ...scanPage(i, p, details, ignore, canvasMeasure),
+      ...barcodeFindings(i, barcodes[i] ?? [], details, ignore),
+    ]);
+  }, [loaded, details, ignored, barcodes]);
 
   const isHidden = (f: Finding) => overrides[f.id] ?? (f.source === 'details' && !f.review);
   const mine = useMemo(() => groupBy(findings.filter((f) => f.source === 'details')), [findings]);
@@ -198,9 +211,11 @@ export function App() {
       setManual([]);
       setIgnored([]);
       setScans({});
+      setBarcodes({});
       setLoaded({ doc, name, pages, proxies });
       const scanned = pages.flatMap((p, i) => (needsOcr(p) ? [i] : []));
       void readScans(doc, proxies, scanned);
+      void readBarcodes(proxies, pages.map(needsOcr));
     } catch (e) {
       const isPassword = (e as Error)?.name === 'PasswordException';
       setError(isPassword ? t.errPassword : t.errFile);
@@ -257,6 +272,25 @@ export function App() {
     );
   }
 
+  /** Checks every page for barcodes and QR codes, one page at a time. */
+  async function readBarcodes(proxies: PDFPageProxy[], scanned: boolean[]) {
+    const mine = session.current;
+    for (let i = 0; i < proxies.length; i++) {
+      if (session.current !== mine) return;
+      setBarcodeCheck({ page: i + 1, total: proxies.length });
+      let codes: Barcode[] = [];
+      try {
+        codes = await findBarcodes(proxies[i], scanned[i]);
+      } catch {
+        // A page that cannot be checked is left as it is; the hint by the
+        // export button still asks the user to look for codes.
+      }
+      if (session.current !== mine) return;
+      if (codes.length) setBarcodes((b) => ({ ...b, [i]: codes }));
+    }
+    setBarcodeCheck(null);
+  }
+
   async function loadFile(file: File | undefined) {
     if (!file) return;
     if (file.type.startsWith('image/')) {
@@ -282,8 +316,11 @@ export function App() {
   function clearAll() {
     session.current++;
     stopOcr();
+    stopBarcodes();
     void loaded?.doc.destroy();
     setScans({});
+    setBarcodes({});
+    setBarcodeCheck(null);
     setLoaded(null);
     setRaw(EMPTY);
     setIgnored([]);
@@ -491,7 +528,7 @@ export function App() {
         </h3>
         {others.length ? groupList(others, true) : <p className="hint">{t.noneFound}</p>}
         <p className="hint">
-          {t.reviewHint}
+          {touch ? t.drawHintTouch : t.reviewHint}
           {manual.length > 0 && ` ${t.manualCount(manual.length)}`}
         </p>
 
@@ -513,10 +550,15 @@ export function App() {
         <button
           type="button"
           className="primary"
-          disabled={!!busy || scanning > 0}
+          disabled={!!busy || scanning > 0 || barcodeCheck !== null}
           onClick={() => runExport()}
         >
-          {busy || (scanning > 0 ? t.readingScans(scanning) : t.create(hiddenCount))}
+          {busy ||
+            (scanning > 0
+              ? t.readingScans(scanning)
+              : barcodeCheck
+                ? t.findingBarcodes(barcodeCheck.page, barcodeCheck.total)
+                : t.create(hiddenCount))}
         </button>
         {asking && (
           <div className="result ask">
@@ -565,6 +607,16 @@ export function App() {
       </aside>
 
       <div className="pages">
+        {touch && (
+          <button
+            type="button"
+            className={`draw-toggle ${drawing ? 'on' : ''}`}
+            aria-pressed={drawing}
+            onClick={() => setDrawing((d) => !d)}
+          >
+            {drawing ? t.doneDrawing : t.drawBox}
+          </button>
+        )}
         {loaded.proxies.map((page, i) => (
           <PageView
             key={i}
@@ -588,7 +640,11 @@ export function App() {
             onAddManual={(pageIndex: number, rect: Rect) =>
               setManual((m) => [...m, { id: crypto.randomUUID(), page: pageIndex, rect }])
             }
+            onUpdateManual={(id, rect) =>
+              setManual((m) => m.map((b) => (b.id === id ? { ...b, rect } : b)))
+            }
             onRemoveManual={(id) => setManual((m) => m.filter((b) => b.id !== id))}
+            drawing={drawing}
           />
         ))}
       </div>

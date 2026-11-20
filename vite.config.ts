@@ -61,7 +61,7 @@ export default defineConfig({
       },
       workbox: {
         // pdf.js worker, character maps and fonts must be available offline.
-        globPatterns: ['**/*.{js,mjs,css,html,svg,png,bcmap,pfb,ttf,pdf}'],
+        globPatterns: ['**/*.{js,mjs,css,html,svg,png,bcmap,pfb,ttf,pdf,wasm}'],
         // The OCR engine and language data (about 15 MB) are not downloaded
         // up front: they are fetched the first time a scan is read, then kept
         // for offline use.
