@@ -24,6 +24,8 @@ Ordered by priority. See [docs/PLAN.md](docs/PLAN.md) for the full product plan.
 - [x] Privacy check on the build: CSP present, no unknown outside addresses, size budget (`scripts/check-build.mjs`).
 - [ ] End-to-end job with Playwright against the production build (see P2).
 - [x] Dependabot for npm and GitHub Actions (`.github/dependabot.yml`).
+- [ ] Upgrade PDF.js 4 → 6 on purpose (render API, CSP, worker); re-run every browser check. Dependabot skips major versions.
+- [ ] TypeScript 7 once `typescript-eslint` supports it.
 - [ ] `npm audit --omit=dev` in CI.
 - [x] Deploy `dist/` from `main` to GitHub Pages (`.github/workflows/pages.yml`), gated by the same checks.
 - [ ] On GitHub: protect `main` and require the CI checks to pass.
