@@ -58,6 +58,9 @@ const PATTERNS: Pattern[] = [
     kind: 'Phone',
     re: /(?<!\d)(?:\+?972[- ]?|0)(?:5\d|7\d|[23489])[- ]?\d{3}[- ]?\d{4}(?!\d)/g,
   },
+  // Israeli bank account written as bank-branch-account (12-999-000001).
+  // After Phone, so a landline with dashes is still read as a phone.
+  { kind: 'Bank account', re: /(?<!\d)\d{2}-\d{3}-\d{4,9}(?!\d)/g },
   {
     kind: 'Card number',
     re: /(?<!\d)(?:\d[ -]?){12,18}\d(?!\d)/g,

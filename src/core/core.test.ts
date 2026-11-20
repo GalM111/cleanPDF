@@ -202,6 +202,22 @@ describe('geometry', () => {
   });
 });
 
+describe('bank accounts', () => {
+  const kinds = (text: string) =>
+    resolveOverlaps([], patternMatches(norm(text))).map((m) => m.kind);
+
+  it('suggests an account written as bank-branch-account', () => {
+    expect(kinds('paid monthly to bank account 12-999-000001.')).toEqual(['Bank account']);
+    expect(kinds('לחשבון בנק 12-999-000001')).toEqual(['Bank account']);
+  });
+
+  it('does not take dates, phones or IDs for accounts', () => {
+    expect(kinds('signed on 12-03-2026')).toEqual([]);
+    expect(kinds('call 03-000-0000 or 052-123-4567')).toEqual(['Phone', 'Phone']);
+    expect(kinds('ID 123456782')).toEqual(['ID number']);
+  });
+});
+
 describe('form fields', () => {
   const field = (str: string, x: number, y: number): TextItem => ({
     str,
